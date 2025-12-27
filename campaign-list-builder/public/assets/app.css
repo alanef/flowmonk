@@ -1,0 +1,325 @@
+/* FlowMonk - Custom Styles */
+
+/* Override Pico's default button width */
+button,
+[type="submit"],
+[type="button"] {
+    width: auto;
+}
+
+/* Override Pico's margin on form elements */
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+    margin-bottom: 0;
+}
+
+/* Condition row styling */
+.condition-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.condition-row .conjunction {
+    width: 80px;
+    flex-shrink: 0;
+}
+
+/* Hide conjunction placeholder on first row */
+.condition-row .conjunction-placeholder {
+    width: 80px;
+    flex-shrink: 0;
+    visibility: hidden;
+}
+
+.condition-row .attribute {
+    width: 200px;
+    flex-shrink: 0;
+}
+
+.condition-row .operator {
+    width: 140px;
+    flex-shrink: 0;
+}
+
+.condition-row .value {
+    flex: 1;
+    min-width: 120px;
+}
+
+.condition-row .remove-btn {
+    padding: 0.5rem 0.75rem;
+    flex-shrink: 0;
+}
+
+/* Conditions list container */
+.conditions-list {
+    margin-bottom: 1rem;
+}
+
+/* Results table */
+.results-table {
+    overflow-x: auto;
+    margin-bottom: 1rem;
+}
+
+.results-table table {
+    width: 100%;
+    margin-bottom: 0;
+}
+
+/* Total count display */
+.total-count {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0.5rem 0 1rem 0;
+    color: var(--pico-primary);
+}
+
+/* Loading indicator */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+/* Raw query textarea */
+.raw-query-section {
+    margin-top: 1rem;
+}
+
+.raw-query-section textarea {
+    font-family: monospace;
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+}
+
+.raw-query-section small {
+    display: block;
+    margin-top: 0.25rem;
+    opacity: 0.7;
+}
+
+/* Create list section */
+.create-list-section {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--pico-muted-border-color);
+}
+
+/* Alert messages */
+.alert {
+    padding: 1rem;
+    border-radius: var(--pico-border-radius);
+    margin-top: 1rem;
+}
+
+.alert-success {
+    background: color-mix(in srgb, var(--pico-ins-color) 15%, transparent);
+    border: 1px solid var(--pico-ins-color);
+}
+
+.alert-error {
+    background: color-mix(in srgb, var(--pico-del-color) 15%, transparent);
+    border: 1px solid var(--pico-del-color);
+}
+
+/* Card styling for sections */
+.card-section {
+    background: var(--pico-card-background-color);
+    border-radius: var(--pico-border-radius);
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+    box-shadow: var(--pico-card-box-shadow);
+}
+
+.card-section h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+}
+
+/* Button group - horizontal aligned buttons */
+.button-group {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+/* Inline form - for preset loader row */
+.inline-form {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+
+.inline-form > div {
+    flex: 1;
+    min-width: 200px;
+    max-width: 350px;
+}
+
+.inline-form > div label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-weight: 500;
+    font-size: 0.875rem;
+}
+
+.inline-form > div select {
+    width: 100%;
+}
+
+.inline-form > button {
+    margin-bottom: 0;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+}
+
+/* Fieldset improvements */
+fieldset {
+    margin-bottom: 1rem;
+    padding: 0;
+    border: none;
+}
+
+fieldset label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+}
+
+fieldset input[type="radio"],
+fieldset input[type="checkbox"] {
+    margin: 0;
+}
+
+/* Nested option sections */
+.option-details {
+    margin-left: 1.75rem;
+    margin-top: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.option-details input[type="text"],
+.option-details select {
+    max-width: 400px;
+}
+
+.option-details small {
+    display: block;
+    margin-top: 0.25rem;
+    color: var(--pico-del-color);
+}
+
+/* Nested fieldset for update mode options */
+fieldset fieldset {
+    margin-left: 1.75rem;
+    margin-top: 0.5rem;
+}
+
+/* List management table actions */
+.list-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.list-actions a[role="button"],
+.list-actions button {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+/* Dialog styling */
+dialog {
+    max-width: 420px;
+}
+
+dialog article {
+    margin: 0;
+}
+
+dialog article header {
+    padding: 1rem 1.25rem;
+}
+
+dialog article header h3 {
+    margin: 0;
+}
+
+dialog article footer {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    padding: 1rem 1.25rem;
+}
+
+dialog article footer button {
+    margin: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .condition-row {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 0.75rem;
+        background: var(--pico-card-background-color);
+        border-radius: var(--pico-border-radius);
+        margin-bottom: 0.5rem;
+    }
+
+    .condition-row .conjunction,
+    .condition-row .attribute,
+    .condition-row .operator,
+    .condition-row .value {
+        width: 100%;
+    }
+
+    .condition-row .conjunction {
+        order: -1;
+    }
+
+    .inline-form {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .inline-form > div {
+        max-width: none;
+    }
+
+    .inline-form button {
+        width: 100%;
+    }
+
+    .button-group {
+        flex-direction: column;
+    }
+
+    .button-group button {
+        width: 100%;
+    }
+}
+
+/* Small button variant */
+button.small,
+.button.small {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+/* Section spacing */
+section {
+    margin-bottom: 1.5rem;
+}
+
+section:last-child {
+    margin-bottom: 0;
+}

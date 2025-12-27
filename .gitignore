@@ -1,0 +1,32 @@
+# Environment files (contain secrets)
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files11
+.DS_Store
+Thumbs.db
+
+# Data files (runtime generated)
+campaign-list-builder/data/*.json
+
+# Logs
+*.log
+logs/
+
+# Docker
+docker-compose.override.yml
+
+# YouTrack CLI
+.env.youtrack
+youtrack-issues.json
+
+# Cloudflared
+cloudflared/email-tunnel-credentials.json

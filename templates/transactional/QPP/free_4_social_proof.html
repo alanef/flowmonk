@@ -1,0 +1,100 @@
+<!doctype html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
+    <base target="_blank">
+    <style>
+        body {
+            background-color: #F0F1F3;
+            font-family: 'Helvetica Neue', 'Segoe UI', Helvetica, sans-serif;
+            font-size: 15px;
+            line-height: 26px;
+            margin: 0;
+            color: #444;
+        }
+
+        .wrap {
+            background-color: #fff;
+            padding: 30px;
+            max-width: 525px;
+            margin: 0 auto;
+            border-radius: 5px;
+        }
+
+        .gutter {
+            padding: 30px;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #888;
+        }
+
+        .footer a {
+            color: #888;
+        }
+
+        a {
+            color: #0055d4;
+        }
+
+        a:hover {
+            color: #111;
+        }
+
+        @media screen and (max-width: 600px) {
+            .wrap {
+                max-width: auto;
+            }
+
+            .gutter {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body style="background-color: #F0F1F3;font-family: 'Helvetica Neue', 'Segoe UI', Helvetica, sans-serif;font-size: 15px;line-height: 26px;margin: 0;color: #444;">
+<div class="gutter" style="padding: 30px;">&nbsp;</div>
+<div class="wrap" style="background-color: #fff;padding: 30px;max-width: 525px;margin: 0 auto;border-radius: 5px;">
+
+    <p>Hi {{ .Subscriber.Name | default "there" }},</p>
+
+    <p>Quick PayPal Payments has been around for years, and it's helped thousands of WordPress users accept payments without the complexity of full e-commerce solutions.</p>
+
+    <h3>What Users Say</h3>
+
+    <blockquote style="border-left: 3px solid #0055d4; padding-left: 15px; margin: 20px 0; font-style: italic;">
+        "The configuration is a little unusual, but that's what makes it different from the countless other PayPal plugins. Once you get your input correct, this is a great plugin."
+    </blockquote>
+
+    <blockquote style="border-left: 3px solid #0055d4; padding-left: 15px; margin: 20px 0; font-style: italic;">
+        "Simple and effective. Does exactly what it says – quick PayPal payments without the overhead."
+    </blockquote>
+
+    <h3>Common Use Cases</h3>
+
+    <p>People use Quick PayPal Payments for:</p>
+    <ul>
+        <li>Nonprofits collecting donations</li>
+        <li>Consultants taking booking deposits</li>
+        <li>Small businesses selling services without WooCommerce</li>
+        <li>Invoice payments with reference tracking</li>
+        <li>Membership and subscription payments</li>
+    </ul>
+
+    <p>If you need more features – multiple products, coupon codes, Mailchimp – there's a <a href="https://fullworksplugins.com/products/quick-paypal-payments/">14-day free trial</a> of Pro.</p>
+
+    <p>Best regards,<br>Alan</p>
+
+</div>
+
+<div class="footer" style="text-align: center;font-size: 12px;color: #888;padding: 20px;">
+    <p>You received this email because you opted in when you activated Quick PayPal Payments.</p>
+    <p><a href="https://email.fw9.uk/subscription/00000000-0000-0000-0000-000000000000/{{ .Subscriber.UUID }}"
+          style="color: #888;">Unsubscribe</a></p>
+</div>
+<div class="gutter" style="padding: 30px;">&nbsp;</div>
+</body>
+</html>

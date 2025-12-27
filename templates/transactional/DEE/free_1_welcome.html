@@ -1,0 +1,91 @@
+<!doctype html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
+    <base target="_blank">
+    <style>
+        body {
+            background-color: #F0F1F3;
+            font-family: 'Helvetica Neue', 'Segoe UI', Helvetica, sans-serif;
+            font-size: 15px;
+            line-height: 26px;
+            margin: 0;
+            color: #444;
+        }
+
+        .wrap {
+            background-color: #fff;
+            padding: 30px;
+            max-width: 525px;
+            margin: 0 auto;
+            border-radius: 5px;
+        }
+
+        .gutter {
+            padding: 30px;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #888;
+        }
+
+        .footer a {
+            color: #888;
+        }
+
+        a {
+            color: #0055d4;
+        }
+
+        a:hover {
+            color: #111;
+        }
+
+        @media screen and (max-width: 600px) {
+            .wrap {
+                max-width: auto;
+            }
+
+            .gutter {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body style="background-color: #F0F1F3;font-family: 'Helvetica Neue', 'Segoe UI', Helvetica, sans-serif;font-size: 15px;line-height: 26px;margin: 0;color: #444;">
+<div class="gutter" style="padding: 30px;">&nbsp;</div>
+<div class="wrap" style="background-color: #fff;padding: 30px;max-width: 525px;margin: 0 auto;border-radius: 5px;">
+
+    <p>Hi {{ .Subscriber.Name | default "there" }},</p>
+
+    <p>Welcome! I'm Alan, the developer of Display Eventbrite Events – the original and most comprehensive Eventbrite plugin for WordPress.</p>
+
+    <p>Let's get your events displaying beautifully:</p>
+
+    <ol>
+        <li><a href="https://fullworksplugins.com/docs/display-eventbrite-events-in-wordpress/installation-display-eventbrite-events-in-wordpress/connect-to-eventbrite/">Connect to Eventbrite</a> (takes 2 minutes)</li>
+        <li>Add the shortcode <code>[eventbrite_events]</code> to any page</li>
+        <li>Your events appear automatically!</li>
+    </ol>
+
+    <p><strong>Quick tip:</strong> Try the <a href="https://fullworksplugins.com/products/widget-for-eventbrite/eventbrite-shortcode-demo/">interactive shortcode builder</a> – you can test options with your own API key and see results instantly.</p>
+
+    <p>If you run into any issues, our <a href="https://fullworksplugins.com/docs/troubleshooting/">troubleshooting guide</a> covers the common ones, or ask in the <a href="https://wordpress.org/support/plugin/widget-for-eventbrite-api/">support forum</a> – I personally monitor it.</p>
+
+    <p>Best regards,<br>Alan</p>
+
+    <p><em>P.S. The free edition has 22 shortcode options. If you need more layouts, on-site checkout, or priority support, there's a <a href="https://fullworksplugins.com/products/widget-for-eventbrite/">14-day free trial of Pro</a>.</em></p>
+
+</div>
+
+<div class="footer" style="text-align: center;font-size: 12px;color: #888;padding: 20px;">
+    <p>You received this email because you opted in when you activated the Display Eventbrite Events free plugin.</p>
+    <p><a href="https://email.fw9.uk/subscription/00000000-0000-0000-0000-000000000000/{{ .Subscriber.UUID }}"
+          style="color: #888;">Unsubscribe</a></p>
+</div>
+<div class="gutter" style="padding: 30px;">&nbsp;</div>
+</body>
+</html>

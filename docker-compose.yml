@@ -1,0 +1,42 @@
+# Base compose file - works for both Coolify and local
+services:
+  campaign-list-builder:
+    build:
+      context: .
+      dockerfile: campaign-list-builder/Dockerfile
+    container_name: campaign-list-builder
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8082}:80"
+    volumes:
+      - shared-data:/var/www/html/data
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  drip-controller:
+    build:
+      context: .
+      dockerfile: drip-controller/Dockerfile
+    container_name: drip-controller
+    restart: unless-stopped
+    volumes:
+      - shared-data:/data
+      - drip-logs:/var/log/drip
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "/app/healthcheck.sh"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  shared-data:
+  drip-logs:

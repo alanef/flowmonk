@@ -1,0 +1,104 @@
+<!doctype html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
+    <base target="_blank">
+    <style>
+        body {
+            background-color: #F0F1F3;
+            font-family: 'Helvetica Neue', 'Segoe UI', Helvetica, sans-serif;
+            font-size: 15px;
+            line-height: 26px;
+            margin: 0;
+            color: #444;
+        }
+
+        .wrap {
+            background-color: #fff;
+            padding: 30px;
+            max-width: 525px;
+            margin: 0 auto;
+            border-radius: 5px;
+        }
+
+        .gutter {
+            padding: 30px;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #888;
+        }
+
+        .footer a {
+            color: #888;
+        }
+
+        a {
+            color: #0055d4;
+        }
+
+        a:hover {
+            color: #111;
+        }
+
+        @media screen and (max-width: 600px) {
+            .wrap {
+                max-width: auto;
+            }
+
+            .gutter {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body style="background-color: #F0F1F3;font-family: 'Helvetica Neue', 'Segoe UI', Helvetica, sans-serif;font-size: 15px;line-height: 26px;margin: 0;color: #444;">
+<div class="gutter" style="padding: 30px;">&nbsp;</div>
+<div class="wrap" style="background-color: #fff;padding: 30px;max-width: 525px;margin: 0 auto;border-radius: 5px;">
+
+    <p>Hi {{ .Subscriber.Name | default "there" }},</p>
+
+    <p>Just a quick note about what Stop User Enumeration is doing for your site.</p>
+
+    <h3>Why This Matters</h3>
+
+    <p>Most brute-force attacks follow a pattern:</p>
+
+    <ol>
+        <li><strong>Reconnaissance</strong> – probe the site to find valid usernames</li>
+        <li><strong>Attack</strong> – hammer the login page with password guesses</li>
+    </ol>
+
+    <p>Stop User Enumeration breaks step 1. Tools like WPScan can no longer discover your usernames automatically. Attackers are forced to guess both the username <em>and</em> the password – massively reducing their odds.</p>
+
+    <h3>If You Run a VPS or Dedicated Server</h3>
+
+    <p>The plugin logs blocked attempts via syslog. If you use <code>fail2ban</code>, you can automatically block repeat offenders at the firewall level. There's a filter example in the <a href="https://wordpress.org/plugins/stop-user-enumeration/">plugin documentation</a>.</p>
+
+    <h3>Advanced Options</h3>
+
+    <p>The plugin has some optional settings you might want to check:</p>
+
+    <ul>
+        <li><strong>REST API blocking</strong> – on by default, blocks <code>/users</code> endpoint</li>
+        <li><strong>Author sitemap removal</strong> – prevents WordPress exposing users in sitemaps</li>
+        <li><strong>oEmbed filtering</strong> – removes author data from embedded content</li>
+    </ul>
+
+    <p>Find these in <strong>Settings → Stop User Enumeration</strong>.</p>
+
+    <p>Best regards,<br>Alan</p>
+
+</div>
+
+<div class="footer" style="text-align: center;font-size: 12px;color: #888;padding: 20px;">
+    <p>You received this email because you opted in when you activated Stop User Enumeration.</p>
+    <p><a href="https://email.fw9.uk/subscription/00000000-0000-0000-0000-000000000000/{{ .Subscriber.UUID }}"
+          style="color: #888;">Unsubscribe</a></p>
+</div>
+<div class="gutter" style="padding: 30px;">&nbsp;</div>
+</body>
+</html>

@@ -1,0 +1,7 @@
+tunnel: email-tunnel
+credentials-file: ~/.cloudflared/email-tunnel.json
+
+ingress:
+  - hostname: email-tunnel.fw9.uk
+    service: http://localhost:8081
+  - service: http_status:404

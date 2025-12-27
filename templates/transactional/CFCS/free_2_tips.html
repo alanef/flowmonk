@@ -1,0 +1,94 @@
+<!doctype html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
+    <base target="_blank">
+    <style>
+        body {
+            background-color: #F0F1F3;
+            font-family: 'Helvetica Neue', 'Segoe UI', Helvetica, sans-serif;
+            font-size: 15px;
+            line-height: 26px;
+            margin: 0;
+            color: #444;
+        }
+
+        .wrap {
+            background-color: #fff;
+            padding: 30px;
+            max-width: 525px;
+            margin: 0 auto;
+            border-radius: 5px;
+        }
+
+        .gutter {
+            padding: 30px;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #888;
+        }
+
+        .footer a {
+            color: #888;
+        }
+
+        a {
+            color: #0055d4;
+        }
+
+        a:hover {
+            color: #111;
+        }
+
+        @media screen and (max-width: 600px) {
+            .wrap {
+                max-width: auto;
+            }
+
+            .gutter {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body style="background-color: #F0F1F3;font-family: 'Helvetica Neue', 'Segoe UI', Helvetica, sans-serif;font-size: 15px;line-height: 26px;margin: 0;color: #444;">
+<div class="gutter" style="padding: 30px;">&nbsp;</div>
+<div class="wrap" style="background-color: #fff;padding: 30px;max-width: 525px;margin: 0 auto;border-radius: 5px;">
+
+    <p>Hi {{ .Subscriber.Name | default "there" }},</p>
+
+    <p>Just checking in – is your contact form working well?</p>
+
+    <h3>A Few Tips</h3>
+
+    <p><strong>Not receiving emails?</strong></p>
+    <p>Check your spam folder first. If emails aren't arriving at all, your hosting might be blocking them. Try an SMTP plugin like WP Mail SMTP to send via a proper mail service.</p>
+
+    <p><strong>Want instant feedback?</strong></p>
+    <p>The form uses AJAX by default – visitors see validation messages without the page reloading. You can turn this off in settings if it conflicts with your theme.</p>
+
+    <p><strong>Multiple recipients?</strong></p>
+    <p>In settings, you can add multiple email addresses separated by commas. All recipients get the same message.</p>
+
+    <h3>For Developers</h3>
+
+    <p>The plugin has a REST API if you need to integrate the form with external apps or headless WordPress setups. Enable it in settings and check the <a href="https://wordpress.org/plugins/clean-and-simple-contact-form-by-meg-nicholas/">documentation</a> for endpoint details.</p>
+
+    <p>Any issues? Let me know in the <a href="https://wordpress.org/support/plugin/clean-and-simple-contact-form-by-meg-nicholas/">support forum</a>.</p>
+
+    <p>Best regards,<br>Alan</p>
+
+</div>
+
+<div class="footer" style="text-align: center;font-size: 12px;color: #888;padding: 20px;">
+    <p>You received this email because you opted in when you activated Contact Form Clean and Simple.</p>
+    <p><a href="https://email.fw9.uk/subscription/00000000-0000-0000-0000-000000000000/{{ .Subscriber.UUID }}"
+          style="color: #888;">Unsubscribe</a></p>
+</div>
+<div class="gutter" style="padding: 30px;">&nbsp;</div>
+</body>
+</html>

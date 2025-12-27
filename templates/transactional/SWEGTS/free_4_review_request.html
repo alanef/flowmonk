@@ -1,0 +1,89 @@
+<!doctype html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
+    <base target="_blank">
+    <style>
+        body {
+            background-color: #F0F1F3;
+            font-family: 'Helvetica Neue', 'Segoe UI', Helvetica, sans-serif;
+            font-size: 15px;
+            line-height: 26px;
+            margin: 0;
+            color: #444;
+        }
+
+        .wrap {
+            background-color: #fff;
+            padding: 30px;
+            max-width: 525px;
+            margin: 0 auto;
+            border-radius: 5px;
+        }
+
+        .gutter {
+            padding: 30px;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #888;
+        }
+
+        .footer a {
+            color: #888;
+        }
+
+        a {
+            color: #0055d4;
+        }
+
+        a:hover {
+            color: #111;
+        }
+
+        @media screen and (max-width: 600px) {
+            .wrap {
+                max-width: auto;
+            }
+
+            .gutter {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body style="background-color: #F0F1F3;font-family: 'Helvetica Neue', 'Segoe UI', Helvetica, sans-serif;font-size: 15px;line-height: 26px;margin: 0;color: #444;">
+<div class="gutter" style="padding: 30px;">&nbsp;</div>
+<div class="wrap" style="background-color: #fff;padding: 30px;max-width: 525px;margin: 0 auto;border-radius: 5px;">
+
+    <p>Hi {{ .Subscriber.Name | default "there" }},</p>
+
+    <p>You've been using Stop WP Emails Going to Spam for about a month. I hope your WordPress notifications are landing in inboxes now instead of spam folders.</p>
+
+    <h3>Quick Favour?</h3>
+
+    <p>Reviews on WordPress.org really help – both for other users trying to find a solution to this frustrating problem, and for me as an independent developer.</p>
+
+    <p>If the plugin's working for you, I'd appreciate a quick review:</p>
+
+    <p style="text-align: center; margin: 25px 0;">
+        <a href="https://wordpress.org/support/plugin/stop-wp-emails-going-to-spam/reviews/#new-post" style="background-color: #0055d4; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">Leave a Review</a>
+    </p>
+
+    <p>If emails are still giving you trouble, don't leave a bad review just yet – let me help first. Post in the <a href="https://wordpress.org/support/plugin/stop-wp-emails-going-to-spam/">support forum</a> and I'll look into it.</p>
+
+    <p>Thanks,<br>Alan</p>
+
+</div>
+
+<div class="footer" style="text-align: center;font-size: 12px;color: #888;padding: 20px;">
+    <p>You received this email because you opted in when you activated Stop WP Emails Going to Spam.</p>
+    <p><a href="https://email.fw9.uk/subscription/00000000-0000-0000-0000-000000000000/{{ .Subscriber.UUID }}"
+          style="color: #888;">Unsubscribe</a></p>
+</div>
+<div class="gutter" style="padding: 30px;">&nbsp;</div>
+</body>
+</html>
