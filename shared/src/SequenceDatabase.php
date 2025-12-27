@@ -478,21 +478,25 @@ class SequenceDatabase
 
     /**
      * Get all sequences, optionally filtered by plugin
+     * Sorted by sequence_types.sort_order to preserve type ordering (free, trial, premium)
      */
     public function getSequences(?string $pluginId = null): array
     {
         if ($pluginId) {
             $stmt = $this->db->prepare("
-                SELECT * FROM sequences
-                WHERE plugin_id = ?
-                ORDER BY type, step_order
+                SELECT s.* FROM sequences s
+                LEFT JOIN sequence_types st ON s.plugin_id = st.product_id AND s.type = st.type_name
+                WHERE s.plugin_id = ?
+                ORDER BY COALESCE(st.sort_order, 999), s.step_order
             ");
             $stmt->execute([$pluginId]);
             return $stmt->fetchAll();
         }
 
         return $this->db->query("
-            SELECT * FROM sequences ORDER BY plugin_id, type, step_order
+            SELECT s.* FROM sequences s
+            LEFT JOIN sequence_types st ON s.plugin_id = st.product_id AND s.type = st.type_name
+            ORDER BY s.plugin_id, COALESCE(st.sort_order, 999), s.step_order
         ")->fetchAll();
     }
 
@@ -1482,6 +1486,15 @@ class SequenceDatabase
                 'total_active' => 0
             ];
 
+            // Initialize funnel with all defined stages set to 0 (include all, even disabled)
+            // getSequences returns ordered by type, step_order so we preserve proper order
+            $sequences = $this->getSequences($productId);
+            foreach ($sequences as $seq) {
+                if (!empty($seq['stage'])) {
+                    $productData['funnel'][$seq['stage']] = 0;
+                }
+            }
+
             // Total active (exclude inactive stages)
             $stmt = $this->db->prepare("
                 SELECT COUNT(*) FROM subscriber_drips
@@ -1506,17 +1519,32 @@ class SequenceDatabase
             $stmt->execute([$productId]);
             $stageCounts = $stmt->fetchAll();
 
+            // Track terminal state counts to add at end
+            $terminalCounts = ['complete' => 0, 'stopped' => 0, 'error' => 0];
+
             foreach ($stageCounts as $row) {
                 $stage = $row['stage'] ?? 'unknown';
-                $productData['funnel'][$stage] = (int)$row['count'];
+                $count = (int)$row['count'];
+
+                // Terminal states: track separately to add at end
+                if (in_array($stage, ['complete', 'stopped', 'error'])) {
+                    $terminalCounts[$stage] = $count;
+                } else {
+                    $productData['funnel'][$stage] = $count;
+                }
 
                 if ($stage === 'complete') {
-                    $response['summary']['completed_all_time'] += (int)$row['count'];
+                    $response['summary']['completed_all_time'] += $count;
                 }
                 if ($stage === 'error') {
-                    $response['summary']['errors'] += (int)$row['count'];
+                    $response['summary']['errors'] += $count;
                 }
             }
+
+            // Add terminal states at the end (always show, even if 0)
+            $productData['funnel']['complete'] = $terminalCounts['complete'];
+            $productData['funnel']['stopped'] = $terminalCounts['stopped'];
+            $productData['funnel']['error'] = $terminalCounts['error'];
 
             // Time-based completions for this product
             $stmt = $this->db->prepare("
