@@ -1,0 +1,19 @@
+# Local development overrides - auto-merged by docker compose up
+# Adds ports and source code mounts for hot-reload during development
+services:
+  campaign-list-builder:
+    ports:
+      - "${APP_PORT:-8082}:80"
+    volumes:
+      - ./shared/src:/var/www/html/shared
+      - ./campaign-list-builder/public:/var/www/html/public
+      - ./campaign-list-builder/src:/var/www/html/src
+      - ./campaign-list-builder/templates:/var/www/html/templates
+
+  drip-controller:
+    volumes:
+      - ./shared/src:/app/shared
+      - ./drip-controller/src:/app/src
+      - ./drip-controller/config:/app/config
+      - ./drip-controller/drip-runner.php:/app/drip-runner.php
+      - ./drip-controller/migrate-to-sqlite.php:/app/migrate-to-sqlite.php

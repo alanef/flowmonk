@@ -22,7 +22,7 @@ campaign-list-builder/data/*.json
 logs/
 
 # Docker
-docker-compose.override.yml
+# docker-compose.override.yml is tracked for local dev
 
 # YouTrack CLI
 .env.youtrack

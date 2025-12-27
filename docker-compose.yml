@@ -6,8 +6,6 @@ services:
       dockerfile: campaign-list-builder/Dockerfile
     container_name: campaign-list-builder
     restart: unless-stopped
-    ports:
-      - "${APP_PORT:-8082}:80"
     volumes:
       - shared-data:/var/www/html/data
     env_file:
