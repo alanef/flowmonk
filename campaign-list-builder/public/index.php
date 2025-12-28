@@ -56,7 +56,7 @@ if ($webhookPath === '/api/webhook/product' && $_SERVER['REQUEST_METHOD'] === 'P
     exit;
 }
 
-// Basic auth check
+// Basic auth check with timing-safe comparison
 $appUser = getenv('APP_USER') ?: '';
 $appPass = getenv('APP_PASS') ?: '';
 
@@ -64,7 +64,11 @@ if (!empty($appUser) && !empty($appPass)) {
     $providedUser = $_SERVER['PHP_AUTH_USER'] ?? '';
     $providedPass = $_SERVER['PHP_AUTH_PW'] ?? '';
 
-    if ($providedUser !== $appUser || $providedPass !== $appPass) {
+    // Use hash_equals for timing-safe comparison to prevent timing attacks
+    $userValid = hash_equals($appUser, $providedUser);
+    $passValid = hash_equals($appPass, $providedPass);
+
+    if (!$userValid || !$passValid) {
         header('WWW-Authenticate: Basic realm="FlowMonk"');
         http_response_code(401);
         echo 'Authentication required';
@@ -575,8 +579,14 @@ function handleApi(string $uri, string $method): void
         case $endpoint === 'drip/queue' && $method === 'GET':
             $productId = $_GET['product_id'] ?? $_GET['plugin_id'] ?? null; // Accept both for backward compat
             $status = $_GET['status'] ?? 'active'; // 'due', 'error', 'active', 'completed'
-            $page = (int)($_GET['page'] ?? 1);
-            $perPage = (int)($_GET['per_page'] ?? 50);
+            $page = max(1, (int)($_GET['page'] ?? 1));
+            $perPage = min(500, max(1, (int)($_GET['per_page'] ?? 50))); // Cap at 500
+
+            // Validate status to prevent injection
+            $validStatuses = ['due', 'error', 'active', 'completed'];
+            if (!in_array($status, $validStatuses)) {
+                $status = 'active';
+            }
 
             $seqDb = new SequenceDatabase();
 
@@ -1088,8 +1098,8 @@ function handleApi(string $uri, string $method): void
             $input = json_decode(file_get_contents('php://input'), true);
             $sql = $input['sql'] ?? '';
             $marketingRequired = $input['marketing_required'] ?? true;
-            $page = (int)($input['page'] ?? 1);
-            $perPage = (int)($input['per_page'] ?? 50);
+            $page = max(1, (int)($input['page'] ?? 1));
+            $perPage = min(500, max(1, (int)($input['per_page'] ?? 50))); // Cap at 500
 
             if (empty($sql)) {
                 http_response_code(400);
