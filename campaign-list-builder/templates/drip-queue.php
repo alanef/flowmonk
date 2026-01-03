@@ -101,7 +101,6 @@
                     <th>Stage</th>
                     <th>Next Send</th>
                     <th>Failures</th>
-                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -131,21 +130,14 @@
                             <td>
                                 <span :class="{ 'error-count': drip.failures > 0 }" x-text="drip.failures"></span>
                             </td>
-                            <td>
-                                <button type="button" class="outline small"
-                                        @click="resetSubscriber(sub.id, drip.plugin_id)"
-                                        :disabled="resetting">
-                                    Reset
-                                </button>
-                            </td>
                         </tr>
                     </template>
                 </template>
                 <tr x-show="subscribers.length === 0 && !loading">
-                    <td colspan="8" class="empty-message">No subscribers found matching filters.</td>
+                    <td colspan="7" class="empty-message">No subscribers found matching filters.</td>
                 </tr>
                 <tr x-show="loading">
-                    <td colspan="8" class="empty-message">Loading...</td>
+                    <td colspan="7" class="empty-message">Loading...</td>
                 </tr>
             </tbody>
         </table>
@@ -356,7 +348,6 @@ function dripQueue() {
         perPage: 50,
         total: 0,
         loading: false,
-        resetting: false,
         retrying: false,
         message: '',
         messageType: 'success',
@@ -418,33 +409,6 @@ function dripQueue() {
         async refresh() {
             this.page = 1;
             await Promise.all([this.loadStats(), this.loadQueue()]);
-        },
-
-        async resetSubscriber(subscriberId, pluginId) {
-            if (!confirm('Reset this subscriber\'s drip sequence?')) return;
-
-            this.resetting = true;
-            try {
-                const response = await fetch('/api/drip/queue/reset', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        subscriber_id: subscriberId,
-                        plugin_id: pluginId
-                    })
-                });
-
-                if (response.ok) {
-                    this.showMessage('Subscriber reset successfully', 'success');
-                    await this.refresh();
-                } else {
-                    const data = await response.json();
-                    this.showMessage(data.error || 'Failed to reset subscriber', 'error');
-                }
-            } catch (error) {
-                this.showMessage('Failed to reset subscriber', 'error');
-            }
-            this.resetting = false;
         },
 
         async retryErrors(productId) {
