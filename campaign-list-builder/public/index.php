@@ -535,19 +535,23 @@ function handleApi(string $uri, string $method): void
                 $list = $listmonk->getList($listId);
                 if (!$list) continue;
 
-                // List API returns subscriber_count and subscriber_statuses directly
-                $subscriberCount = $list['subscriber_count'] ?? 0;
+                // Use subscriber_statuses values directly (subscriber_count is unreliable)
                 $statuses = $list['subscriber_statuses'] ?? [];
+                $statusConfirmed = $statuses['confirmed'] ?? 0;
+                $statusUnconfirmed = $statuses['unconfirmed'] ?? 0;
                 $unsubscribed = $statuses['unsubscribed'] ?? 0;
                 $isDoubleOptIn = ($list['optin'] ?? 'single') === 'double';
 
+                // Total = sum of statuses (matches listmonk UI)
+                $subscriberCount = $statusConfirmed + $statusUnconfirmed + $unsubscribed;
+
                 if ($isDoubleOptIn) {
                     // Double opt-in: use actual confirmed/unconfirmed counts
-                    $confirmed = $statuses['confirmed'] ?? 0;
-                    $unconfirmed = $statuses['unconfirmed'] ?? 0;
+                    $confirmed = $statusConfirmed;
+                    $unconfirmed = $statusUnconfirmed;
                 } else {
-                    // Single opt-in: all subscribers are effectively confirmed (no confirmation step)
-                    $confirmed = $subscriberCount - $unsubscribed;
+                    // Single opt-in: all active subscribers are effectively confirmed
+                    $confirmed = $statusConfirmed + $statusUnconfirmed;
                     $unconfirmed = 0;
                 }
 
