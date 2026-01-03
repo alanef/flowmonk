@@ -104,7 +104,10 @@
                                 <span :class="getDeltaClass(listData.delta_month)"
                                       x-text="formatDelta(listData.delta_month)"></span>
                             </td>
-                            <td><span class="count-unconfirmed" :class="{ 'warning': listData.unconfirmed > 0 }" x-text="listData.unconfirmed"></span></td>
+                            <td>
+                                <span x-show="listData.optin === 'double'" class="count-unconfirmed" :class="{ 'warning': listData.unconfirmed > 0 }" x-text="listData.unconfirmed"></span>
+                                <span x-show="listData.optin !== 'double'" class="count-na">N/A</span>
+                            </td>
                             <td><span class="count-unsubscribed" :class="{ 'error': listData.unsubscribed > 0 }" x-text="listData.unsubscribed"></span></td>
                         </tr>
                     </template>
