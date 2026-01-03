@@ -538,9 +538,18 @@ function handleApi(string $uri, string $method): void
                 // List API returns subscriber_count and subscriber_statuses directly
                 $subscriberCount = $list['subscriber_count'] ?? 0;
                 $statuses = $list['subscriber_statuses'] ?? [];
-                $confirmed = $statuses['confirmed'] ?? 0;
-                $unconfirmed = $statuses['unconfirmed'] ?? 0;
                 $unsubscribed = $statuses['unsubscribed'] ?? 0;
+                $isDoubleOptIn = ($list['optin'] ?? 'single') === 'double';
+
+                if ($isDoubleOptIn) {
+                    // Double opt-in: use actual confirmed/unconfirmed counts
+                    $confirmed = $statuses['confirmed'] ?? 0;
+                    $unconfirmed = $statuses['unconfirmed'] ?? 0;
+                } else {
+                    // Single opt-in: all subscribers are effectively confirmed (no confirmation step)
+                    $confirmed = $subscriberCount - $unsubscribed;
+                    $unconfirmed = 0;
+                }
 
                 // Record today's snapshot (will update if already exists)
                 $seqDb->recordListStats($listId, $subscriberCount, $confirmed, $unconfirmed, $unsubscribed);
