@@ -25,7 +25,7 @@ logs/
 # docker-compose.override.yml is tracked for local dev
 
 # YouTrack CLI
-.env.youtrack
+../.env.youtrack
 youtrack-issues.json
 
 # Cloudflared

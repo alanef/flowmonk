@@ -538,11 +538,9 @@ function handleApi(string $uri, string $method): void
                 // List API returns subscriber_count and subscriber_statuses directly
                 $subscriberCount = $list['subscriber_count'] ?? 0;
                 $statuses = $list['subscriber_statuses'] ?? [];
+                $confirmed = $statuses['confirmed'] ?? 0;
                 $unconfirmed = $statuses['unconfirmed'] ?? 0;
                 $unsubscribed = $statuses['unsubscribed'] ?? 0;
-
-                // Confirmed = total - unconfirmed - unsubscribed
-                $confirmed = $subscriberCount - $unconfirmed - $unsubscribed;
 
                 // Record today's snapshot (will update if already exists)
                 $seqDb->recordListStats($listId, $subscriberCount, $confirmed, $unconfirmed, $unsubscribed);
