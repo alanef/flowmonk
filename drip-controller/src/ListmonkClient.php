@@ -6,6 +6,8 @@
  * subscriber queries, attribute updates, and transactional emails.
  */
 
+require_once __DIR__ . '/SubscriberNotFoundException.php';
+
 class ListmonkClient
 {
     private string $baseUrl;
@@ -109,10 +111,36 @@ class ListmonkClient
 
     /**
      * Get a single subscriber by ID
+     *
+     * @throws SubscriberNotFoundException if subscriber does not exist (404)
+     * @throws RuntimeException for other API errors
      */
     public function getSubscriber(int $id): array
     {
-        return $this->request('GET', "subscribers/$id");
+        try {
+            return $this->request('GET', "subscribers/$id");
+        } catch (RuntimeException $e) {
+            // FA-18: Detect 404 "subscriber not found" and throw specific exception
+            if ($this->isSubscriberNotFoundError($e->getMessage())) {
+                throw new SubscriberNotFoundException($id, $e->getMessage());
+            }
+            throw $e;
+        }
+    }
+
+    /**
+     * Check if an error message indicates a subscriber was not found
+     * FA-18: Detect deleted subscribers distinctly from other errors
+     */
+    private function isSubscriberNotFoundError(string $message): bool
+    {
+        // Listmonk returns HTTP 400 with message containing "subscriber not found"
+        // when the subscriber ID doesn't exist
+        return (
+            stripos($message, 'subscriber not found') !== false ||
+            stripos($message, 'record not found') !== false ||
+            preg_match('/API error \(404\)/i', $message)
+        );
     }
 
     /**

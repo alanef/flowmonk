@@ -861,7 +861,8 @@ function handleApi(string $uri, string $method): void
                 if (!$isActive) {
                     $blockReasons[] = 'Subscriber is inactive for this product';
                 }
-                if (in_array($stage, ['complete', 'stopped', 'error', 'none', 'imported', ''])) {
+                // FA-18: Added 'deleted' for subscribers removed from Listmonk
+                if (in_array($stage, ['complete', 'stopped', 'error', 'deleted', 'none', 'imported', ''])) {
                     $blockReasons[] = "Stage is inactive: '" . ($stage ?: 'empty') . "'";
                 }
                 if (empty($nextDateStr)) {
