@@ -434,6 +434,7 @@ class DunningProcessor
     {
         $email = $dunning['email'];
         $listmonkId = $dunning['listmonk_id'];
+        $subscriberId = (int)($dunning['subscriber_id'] ?? 0);
 
         if (!$listmonkId) {
             $this->logger->error("[$email] Cannot send dunning - no Listmonk ID");
@@ -456,6 +457,17 @@ class DunningProcessor
 
         if ($success) {
             $this->logger->info("[$email] Resent optin confirmation ($stage)");
+
+            // FA-19: Record the dunning email send for inactivity tracking
+            if ($subscriberId > 0) {
+                try {
+                    $this->db->recordEmailSend($subscriberId, 'dunning', null, null, null);
+                    $this->logger->debug("[$email] Recorded dunning send for inactivity tracking");
+                } catch (Exception $e) {
+                    // Don't fail if tracking fails - just log it
+                    $this->logger->warn("[$email] Failed to record dunning send: " . $e->getMessage());
+                }
+            }
         } else {
             $this->logger->error("[$email] Failed to resend optin confirmation ($stage)");
         }

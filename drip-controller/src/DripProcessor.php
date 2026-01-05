@@ -216,6 +216,16 @@ class DripProcessor
             try {
                 $this->client->sendTx($email, $templateId, $templateData);
                 $this->logger->info("[$email] Sent product $productId $stage (template $templateId)");
+
+                // FA-19: Record the email send for inactivity tracking
+                try {
+                    $subscriberId = (int)$drip['subscriber_id'];
+                    $this->db->recordEmailSend($subscriberId, 'drip', $productId, null, $templateId);
+                    $this->logger->debug("[$email] Recorded drip send for inactivity tracking");
+                } catch (Exception $e) {
+                    // Don't fail the drip if tracking fails - just log it
+                    $this->logger->warn("[$email] Failed to record drip send: " . $e->getMessage());
+                }
             } catch (Exception $e) {
                 $this->logger->error("[$email] Failed to send product $productId $stage: " . $e->getMessage());
 

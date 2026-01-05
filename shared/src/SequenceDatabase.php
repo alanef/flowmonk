@@ -190,6 +190,26 @@ class SequenceDatabase
         $this->db->exec("CREATE INDEX IF NOT EXISTS idx_subscriber_dunning_next ON subscriber_dunning(next_reminder)");
         $this->db->exec("CREATE INDEX IF NOT EXISTS idx_subscribers_listmonk_id ON subscribers(listmonk_id)");
 
+        // FA-19: Email sends tracking table for inactivity filtering
+        $this->db->exec("
+            CREATE TABLE IF NOT EXISTS email_sends (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                subscriber_id INTEGER NOT NULL,
+                email_type TEXT NOT NULL,
+                product_id TEXT,
+                campaign_id INTEGER,
+                template_id INTEGER,
+                sent_at TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (subscriber_id) REFERENCES subscribers(id)
+            )
+        ");
+
+        // FA-19: Indexes for efficient inactivity queries
+        $this->db->exec("CREATE INDEX IF NOT EXISTS idx_email_sends_subscriber ON email_sends(subscriber_id)");
+        $this->db->exec("CREATE INDEX IF NOT EXISTS idx_email_sends_sent_at ON email_sends(sent_at)");
+        $this->db->exec("CREATE INDEX IF NOT EXISTS idx_email_sends_type ON email_sends(email_type)");
+
         // Seed default data if tables are empty
         $count = $this->db->query("SELECT COUNT(*) FROM products")->fetchColumn();
         if ($count == 0) {
@@ -1660,5 +1680,193 @@ class SequenceDatabase
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
         return $stmt->fetchAll();
+    }
+
+    // =========================================================================
+    // FA-19: Email Sends Tracking Methods
+    // =========================================================================
+
+    /**
+     * Record an email send for inactivity tracking
+     *
+     * @param int $subscriberId SQLite subscriber ID
+     * @param string $emailType Type of email: 'drip', 'dunning', or 'campaign'
+     * @param string|null $productId Product ID (for drip emails)
+     * @param int|null $campaignId Listmonk campaign ID (for campaign emails)
+     * @param int|null $templateId Listmonk template ID
+     * @return int The inserted record ID
+     */
+    public function recordEmailSend(
+        int $subscriberId,
+        string $emailType,
+        ?string $productId = null,
+        ?int $campaignId = null,
+        ?int $templateId = null
+    ): int {
+        $now = (new DateTime('now', new DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
+
+        $stmt = $this->db->prepare("
+            INSERT INTO email_sends (subscriber_id, email_type, product_id, campaign_id, template_id, sent_at, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([$subscriberId, $emailType, $productId, $campaignId, $templateId, $now, $now]);
+
+        return (int)$this->db->lastInsertId();
+    }
+
+    /**
+     * Record an email send by email address (creates subscriber if needed)
+     *
+     * @param string $email Subscriber email address
+     * @param string $emailType Type of email: 'drip', 'dunning', or 'campaign'
+     * @param string|null $productId Product ID (for drip emails)
+     * @param int|null $campaignId Listmonk campaign ID (for campaign emails)
+     * @param int|null $templateId Listmonk template ID
+     * @param int|null $listmonkId Listmonk subscriber ID (optional)
+     * @return int The inserted record ID
+     */
+    public function recordEmailSendByEmail(
+        string $email,
+        string $emailType,
+        ?string $productId = null,
+        ?int $campaignId = null,
+        ?int $templateId = null,
+        ?int $listmonkId = null
+    ): int {
+        $subscriber = $this->getOrCreateSubscriber($email, $listmonkId);
+        return $this->recordEmailSend(
+            (int)$subscriber['id'],
+            $emailType,
+            $productId,
+            $campaignId,
+            $templateId
+        );
+    }
+
+    /**
+     * Get the last email send date for a subscriber
+     *
+     * @param int $subscriberId SQLite subscriber ID
+     * @return string|null ISO 8601 date string or null if no sends
+     */
+    public function getLastEmailSendDate(int $subscriberId): ?string
+    {
+        $stmt = $this->db->prepare("
+            SELECT sent_at FROM email_sends
+            WHERE subscriber_id = ?
+            ORDER BY sent_at DESC
+            LIMIT 1
+        ");
+        $stmt->execute([$subscriberId]);
+        $result = $stmt->fetchColumn();
+        return $result !== false ? $result : null;
+    }
+
+    /**
+     * Get subscriber IDs who haven't received any email in the last N days
+     *
+     * @param int $days Number of days of inactivity
+     * @param string|null $productId Optional product ID filter
+     * @return array Array of subscriber data including email and listmonk_id
+     */
+    public function getInactiveSubscribers(int $days, ?string $productId = null): array
+    {
+        $cutoffDate = (new DateTime('now', new DateTimeZone('UTC')))
+            ->modify("-{$days} days")
+            ->format('Y-m-d\TH:i:s\Z');
+
+        $params = [];
+        $productFilter = '';
+
+        if ($productId) {
+            $productFilter = "AND d.product_id = ?";
+            $params[] = $productId;
+        }
+
+        $params[] = $cutoffDate;
+        $params[] = $cutoffDate;
+
+        // Find subscribers who:
+        // 1. Have drip records (so they're in our system)
+        // 2. Either have no email_sends records OR their last send was before cutoff
+        $stmt = $this->db->prepare("
+            SELECT DISTINCT s.id, s.email, s.listmonk_id, d.product_id, d.status, d.stage, d.updated_at
+            FROM subscribers s
+            JOIN subscriber_drips d ON s.id = d.subscriber_id
+            WHERE d.is_active = 1
+              $productFilter
+              AND (
+                  -- No email sends at all
+                  NOT EXISTS (
+                      SELECT 1 FROM email_sends e WHERE e.subscriber_id = s.id
+                  )
+                  OR
+                  -- Last email send was before cutoff
+                  (
+                      SELECT MAX(e.sent_at) FROM email_sends e WHERE e.subscriber_id = s.id
+                  ) < ?
+              )
+              -- Also check drip updated_at for subscribers who may have been imported before tracking
+              AND (d.updated_at IS NULL OR d.updated_at < ?)
+            ORDER BY d.updated_at ASC
+        ");
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Get email send statistics for a subscriber
+     *
+     * @param int $subscriberId SQLite subscriber ID
+     * @return array Stats including total sends, last send date, by type
+     */
+    public function getEmailSendStats(int $subscriberId): array
+    {
+        // Total and last send
+        $stmt = $this->db->prepare("
+            SELECT
+                COUNT(*) as total_sends,
+                MAX(sent_at) as last_send
+            FROM email_sends
+            WHERE subscriber_id = ?
+        ");
+        $stmt->execute([$subscriberId]);
+        $totals = $stmt->fetch();
+
+        // By type
+        $stmt = $this->db->prepare("
+            SELECT
+                email_type,
+                COUNT(*) as count,
+                MAX(sent_at) as last_send
+            FROM email_sends
+            WHERE subscriber_id = ?
+            GROUP BY email_type
+        ");
+        $stmt->execute([$subscriberId]);
+        $byType = $stmt->fetchAll();
+
+        return [
+            'total_sends' => (int)($totals['total_sends'] ?? 0),
+            'last_send' => $totals['last_send'] ?? null,
+            'by_type' => $byType
+        ];
+    }
+
+    /**
+     * Clean up old email send records (keep last N days)
+     *
+     * @param int $retentionDays Number of days to retain records
+     * @return int Number of deleted records
+     */
+    public function cleanupOldEmailSends(int $retentionDays = 365): int
+    {
+        $cutoffDate = (new DateTime('now', new DateTimeZone('UTC')))
+            ->modify("-{$retentionDays} days")
+            ->format('Y-m-d\TH:i:s\Z');
+
+        $stmt = $this->db->prepare("DELETE FROM email_sends WHERE sent_at < ?");
+        $stmt->execute([$cutoffDate]);
+        return $stmt->rowCount();
     }
 }
