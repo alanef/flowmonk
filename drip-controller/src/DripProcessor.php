@@ -150,6 +150,13 @@ class DripProcessor
                         return 'skipped';
                     }
                 }
+            } catch (SubscriberNotFoundException $e) {
+                // FA-18: Subscriber was deleted from Listmonk - mark as 'deleted' not 'error'
+                $this->logger->info("[$email] Subscriber deleted from Listmonk (ID: $listmonkId) - marking drip as deleted");
+                if (!$this->dryRun) {
+                    $this->db->updateDrip($dripId, ['stage' => 'deleted', 'next_send' => null]);
+                }
+                return 'skipped';
             } catch (Exception $e) {
                 $this->logger->warn("[$email] Could not fetch subscriber from Listmonk: " . $e->getMessage());
                 // Continue without Listmonk check if we can't reach it

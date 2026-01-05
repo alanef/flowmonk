@@ -13,6 +13,8 @@
  * - Day 21: Blocklist subscriber (dunning_blocklist)
  */
 
+require_once __DIR__ . '/SubscriberNotFoundException.php';
+
 class DunningProcessor
 {
     private ListmonkClient $client;
@@ -201,6 +203,13 @@ class DunningProcessor
                 $this->logger->info("[$email] Subscriber confirmed on list $listId - cleared dunning");
                 return true;
             }
+        } catch (SubscriberNotFoundException $e) {
+            // FA-18: Subscriber was deleted from Listmonk - clear dunning
+            $this->logger->info("[$email] Subscriber deleted from Listmonk (ID: $listmonkId) - cleared dunning");
+            if (!$this->dryRun) {
+                $this->db->deleteDunning($subscriberId, $listId);
+            }
+            return true; // Return true since we cleared the dunning
         } catch (Exception $e) {
             $this->logger->warn("[$email] Could not check confirmation status: " . $e->getMessage());
         }
@@ -262,6 +271,10 @@ class DunningProcessor
             $this->logger->info("[$email] Initiated dunning for list $unconfirmedListId, first reminder: " . $firstReminderDate->format('Y-m-d H:i:s'));
             return true;
 
+        } catch (SubscriberNotFoundException $e) {
+            // FA-18: Subscriber was deleted - no action needed, just skip
+            $this->logger->debug("[$email] Subscriber deleted from Listmonk (ID: $listmonkId) - skipping dunning initiation");
+            return false;
         } catch (Exception $e) {
             $this->logger->warn("[$email] Could not check for dunning initiation: " . $e->getMessage());
         }
@@ -321,6 +334,13 @@ class DunningProcessor
                     $this->logger->info("[$email] Subscriber confirmed - cleared dunning");
                     return 'confirmed';
                 }
+            } catch (SubscriberNotFoundException $e) {
+                // FA-18: Subscriber was deleted from Listmonk - clear dunning
+                $this->logger->info("[$email] Subscriber deleted from Listmonk (ID: $listmonkId) - cleared dunning");
+                if (!$this->dryRun) {
+                    $this->db->deleteDunning($subscriberId, $listId);
+                }
+                return 'skipped';
             } catch (Exception $e) {
                 $this->logger->warn("[$email] Could not check confirmation: " . $e->getMessage());
             }
@@ -490,17 +510,24 @@ class DunningProcessor
             return true;
         }
 
-        // Set status to blocklisted via Listmonk API
-        $success = $this->client->setSubscriberStatus($listmonkId, 'blocklisted');
+        try {
+            // Set status to blocklisted via Listmonk API
+            $success = $this->client->setSubscriberStatus($listmonkId, 'blocklisted');
 
-        if ($success) {
-            // Delete the dunning record since we're done
+            if ($success) {
+                // Delete the dunning record since we're done
+                $this->db->deleteDunning($subscriberId, $listId);
+                $this->logger->info("[$email] Blocklisted after 21 days unconfirmed");
+            } else {
+                $this->logger->error("[$email] Failed to blocklist subscriber");
+            }
+
+            return $success;
+        } catch (SubscriberNotFoundException $e) {
+            // FA-18: Subscriber was already deleted - clear dunning and consider it done
+            $this->logger->info("[$email] Subscriber deleted from Listmonk (ID: $listmonkId) - cleared dunning (no blocklist needed)");
             $this->db->deleteDunning($subscriberId, $listId);
-            $this->logger->info("[$email] Blocklisted after 21 days unconfirmed");
-        } else {
-            $this->logger->error("[$email] Failed to blocklist subscriber");
+            return true;
         }
-
-        return $success;
     }
 }

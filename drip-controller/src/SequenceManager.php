@@ -201,10 +201,11 @@ class SequenceManager
 
     /**
      * Check if a stage indicates the sequence is complete or stopped
+     * FA-18: Added 'deleted' for subscribers removed from Listmonk
      */
     public function isInactiveStage(string $stage): bool
     {
-        return in_array($stage, ['complete', 'stopped', 'error', 'none', 'imported', '']);
+        return in_array($stage, ['complete', 'stopped', 'error', 'deleted', 'none', 'imported', '']);
     }
 
     /**

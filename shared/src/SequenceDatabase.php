@@ -946,7 +946,7 @@ class SequenceDatabase
               AND d.next_send <= ?
               AND d.is_active = 1
               AND d.stage IS NOT NULL
-              AND d.stage NOT IN ('complete', 'error', 'stopped', 'none', 'imported')
+              AND d.stage NOT IN ('complete', 'error', 'stopped', 'deleted', 'none', 'imported')
             ORDER BY d.next_send ASC
         ");
         $stmt->execute([$now]);
@@ -967,7 +967,7 @@ class SequenceDatabase
             WHERE d.next_send IS NOT NULL
               AND d.is_active = 1
               AND d.stage IS NOT NULL
-              AND d.stage NOT IN ('complete', 'error', 'stopped', 'none', 'imported')
+              AND d.stage NOT IN ('complete', 'error', 'stopped', 'deleted', 'none', 'imported')
         ";
         $params = [];
 
@@ -996,7 +996,7 @@ class SequenceDatabase
                 p.name as product_name,
                 d.status,
                 COUNT(*) as count,
-                SUM(CASE WHEN d.stage IN ('complete', 'error', 'stopped') THEN 0 ELSE 1 END) as active_count
+                SUM(CASE WHEN d.stage IN ('complete', 'error', 'stopped', 'deleted') THEN 0 ELSE 1 END) as active_count
             FROM subscriber_drips d
             JOIN products p ON d.product_id = p.id
             GROUP BY d.product_id, d.status
@@ -1269,7 +1269,7 @@ class SequenceDatabase
                 WHERE product_id = ?
                   AND is_active = 1
                   AND stage IS NOT NULL
-                  AND stage NOT IN ('complete', 'stopped', 'error', 'none', 'imported')
+                  AND stage NOT IN ('complete', 'stopped', 'error', 'deleted', 'none', 'imported')
             ");
             $stmt->execute([$productId]);
             $inQueue = (int)$stmt->fetchColumn();
@@ -1282,7 +1282,7 @@ class SequenceDatabase
                   AND next_send IS NOT NULL
                   AND next_send <= ?
                   AND stage IS NOT NULL
-                  AND stage NOT IN ('complete', 'stopped', 'error', 'none', 'imported')
+                  AND stage NOT IN ('complete', 'stopped', 'error', 'deleted', 'none', 'imported')
             ");
             $stmt->execute([$productId, $now]);
             $dueNow = (int)$stmt->fetchColumn();
@@ -1341,7 +1341,7 @@ class SequenceDatabase
             case 'due':
                 $whereConditions[] = "d.next_send IS NOT NULL AND d.next_send != '' AND d.next_send <= ?";
                 $whereConditions[] = "d.is_active = 1";
-                $whereConditions[] = "d.stage IS NOT NULL AND d.stage != '' AND d.stage NOT IN ('complete', 'stopped', 'error', 'none', 'imported')";
+                $whereConditions[] = "d.stage IS NOT NULL AND d.stage != '' AND d.stage NOT IN ('complete', 'stopped', 'error', 'deleted', 'none', 'imported')";
                 $params[] = $now;
                 break;
             case 'error':
@@ -1353,7 +1353,7 @@ class SequenceDatabase
             case 'active':
             default:
                 $whereConditions[] = "d.is_active = 1";
-                $whereConditions[] = "d.stage IS NOT NULL AND d.stage != '' AND d.stage NOT IN ('complete', 'stopped', 'error', 'none', 'imported')";
+                $whereConditions[] = "d.stage IS NOT NULL AND d.stage != '' AND d.stage NOT IN ('complete', 'stopped', 'error', 'deleted', 'none', 'imported')";
                 break;
         }
 
@@ -1501,7 +1501,7 @@ class SequenceDatabase
                 WHERE product_id = ?
                   AND is_active = 1
                   AND stage IS NOT NULL
-                  AND stage NOT IN ('complete', 'stopped', 'error', 'none', 'imported')
+                  AND stage NOT IN ('complete', 'stopped', 'error', 'deleted', 'none', 'imported')
             ");
             $stmt->execute([$productId]);
             $productData['total_active'] = (int)$stmt->fetchColumn();
@@ -1520,14 +1520,16 @@ class SequenceDatabase
             $stageCounts = $stmt->fetchAll();
 
             // Track terminal state counts to add at end
-            $terminalCounts = ['complete' => 0, 'stopped' => 0, 'error' => 0];
+            // FA-18: Added 'deleted' as a terminal state
+            $terminalCounts = ['complete' => 0, 'stopped' => 0, 'error' => 0, 'deleted' => 0];
 
             foreach ($stageCounts as $row) {
                 $stage = $row['stage'] ?? 'unknown';
                 $count = (int)$row['count'];
 
                 // Terminal states: track separately to add at end
-                if (in_array($stage, ['complete', 'stopped', 'error'])) {
+                // FA-18: Added 'deleted' as a terminal state
+                if (in_array($stage, ['complete', 'stopped', 'error', 'deleted'])) {
                     $terminalCounts[$stage] = $count;
                 } else {
                     $productData['funnel'][$stage] = $count;
@@ -1542,9 +1544,11 @@ class SequenceDatabase
             }
 
             // Add terminal states at the end (always show, even if 0)
+            // FA-18: Added 'deleted' for subscribers removed from Listmonk
             $productData['funnel']['complete'] = $terminalCounts['complete'];
             $productData['funnel']['stopped'] = $terminalCounts['stopped'];
             $productData['funnel']['error'] = $terminalCounts['error'];
+            $productData['funnel']['deleted'] = $terminalCounts['deleted'];
 
             // Time-based completions for this product
             $stmt = $this->db->prepare("
