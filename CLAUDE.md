@@ -140,16 +140,3 @@ printenv | grep -E '^(LISTMONK_|LOG_LEVEL|DRY_RUN|DATABASE_)' > /etc/environment
 | Quick PayPal Payments (QPP) | 5623 | quick-paypal-payments |
 
 Free-only plugins (no Freemius): SUE, SWEGTS, CFCS, SSGM, RSHFD, MMT, LHF, FS, AUM
-
----
-
-Issue to solve: https://github.com/alanef/flowmonk/issues/2
-Your prepared branch: issue-2-48f469c896ef
-Your prepared working directory: /tmp/gh-issue-solver-1767650861051
-Your forked repository: konard/alanef-flowmonk
-Original repository (upstream): alanef/flowmonk
-
-Proceed.
-
-
-Run timestamp: 2026-01-05T22:07:45.781Z
