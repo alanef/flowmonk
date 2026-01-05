@@ -56,6 +56,90 @@ if ($webhookPath === '/api/webhook/product' && $_SERVER['REQUEST_METHOD'] === 'P
     exit;
 }
 
+// FA-19: Listmonk Messenger webhook endpoint for tracking campaign sends
+// Receives POST from Listmonk when campaigns are sent via this messenger
+// No auth required by default, but can be protected via MESSENGER_WEBHOOK_SECRET env var
+if ($webhookPath === '/api/webhook/messenger' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    header('Content-Type: application/json');
+
+    // Optional basic auth verification
+    $webhookSecret = getenv('MESSENGER_WEBHOOK_SECRET') ?: '';
+    if (!empty($webhookSecret)) {
+        $providedAuth = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+        if (!empty($providedAuth) && strpos($providedAuth, 'Basic ') === 0) {
+            $providedSecret = base64_decode(substr($providedAuth, 6));
+            // Expected format: "listmonk:SECRET"
+            $expectedAuth = "listmonk:{$webhookSecret}";
+            if (!hash_equals($expectedAuth, $providedSecret)) {
+                http_response_code(401);
+                echo json_encode(['error' => 'Invalid authorization']);
+                exit;
+            }
+        } elseif (!empty($webhookSecret)) {
+            http_response_code(401);
+            echo json_encode(['error' => 'Authorization required']);
+            exit;
+        }
+    }
+
+    $body = file_get_contents('php://input');
+    $data = json_decode($body, true);
+
+    if (!$data) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Invalid JSON payload']);
+        exit;
+    }
+
+    $seqDb = new SequenceDatabase();
+
+    $recipients = $data['recipients'] ?? [];
+    $campaign = $data['campaign'] ?? [];
+    $campaignId = null;
+
+    // Extract campaign ID from UUID if available (Listmonk doesn't send numeric ID)
+    // We'll use the UUID as a string identifier
+    $campaignUuid = $campaign['uuid'] ?? null;
+    $campaignName = $campaign['name'] ?? 'Unknown campaign';
+
+    $recordedCount = 0;
+    foreach ($recipients as $recipient) {
+        $email = $recipient['email'] ?? null;
+        if (empty($email)) {
+            continue;
+        }
+
+        // Get listmonk subscriber ID from UUID if we need to look it up
+        $listmonkId = null;
+        $subscriberUuid = $recipient['uuid'] ?? null;
+
+        // Record the campaign send
+        try {
+            $seqDb->recordEmailSendByEmail(
+                $email,
+                'campaign',
+                null,           // product_id (not applicable for campaigns)
+                null,           // campaign_id (we use UUID-based tracking)
+                null,           // template_id
+                $listmonkId
+            );
+            $recordedCount++;
+        } catch (Exception $e) {
+            error_log("Failed to record campaign send for $email: " . $e->getMessage());
+        }
+    }
+
+    error_log("[Messenger Webhook] Recorded $recordedCount campaign sends for campaign: $campaignName ($campaignUuid)");
+
+    http_response_code(200);
+    echo json_encode([
+        'success' => true,
+        'recorded' => $recordedCount,
+        'campaign' => $campaignName
+    ]);
+    exit;
+}
+
 // Basic auth check with timing-safe comparison
 $appUser = getenv('APP_USER') ?: '';
 $appPass = getenv('APP_PASS') ?: '';

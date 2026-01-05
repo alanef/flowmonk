@@ -55,12 +55,15 @@
         <div class="form-group">
             <label class="checkbox-label">
                 <input type="checkbox" x-model="inactivityFilter" @change="buildQuery()">
-                No activity in last
+                No email sent in last
                 <input type="number" x-model="inactivityDays" min="1" max="365"
                        style="width: 100px; display: inline-block; margin: 0 8px;"
                        :disabled="!inactivityFilter" @change="buildQuery()">
                 days
             </label>
+            <small x-show="inactivityFilter" style="display: block; margin-left: 1.5rem; color: var(--muted-color);">
+                Finds subscribers who haven't received any email (drip, dunning, or campaign) in the specified period.
+            </small>
         </div>
 
         <!-- Generated SQLite Query -->
@@ -291,9 +294,16 @@ JOIN subscriber_drips d ON s.id = d.subscriber_id`;
                 conditions.push(`d.stage IN (${stageList})`);
             }
 
-            // Inactivity filter
+            // Inactivity filter - FA-19: Use email_sends table for accurate tracking
+            // Finds subscribers who haven't received ANY email (drip, dunning, or campaign) in N days
             if (this.inactivityFilter && this.inactivityDays > 0) {
-                conditions.push(`d.updated_at < datetime('now', '-${this.inactivityDays} days')`);
+                conditions.push(`(
+                    NOT EXISTS (
+                        SELECT 1 FROM email_sends e
+                        WHERE e.subscriber_id = s.id
+                          AND e.sent_at >= datetime('now', '-${this.inactivityDays} days')
+                    )
+                )`);
             }
 
             if (conditions.length > 0) {
