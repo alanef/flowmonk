@@ -162,10 +162,6 @@
                 <span class="dunning-label">In Dunning Queue:</span>
                 <span class="dunning-count" :class="{ 'warning': stats?.dunning?.total_in_dunning > 0 }" x-text="stats?.dunning?.total_in_dunning ?? 0"></span>
             </div>
-            <div class="dunning-blocklisted">
-                <span class="dunning-label">Blocklisted (Never Confirmed):</span>
-                <span class="dunning-count" :class="{ 'error': stats?.dunning?.blocklisted_via_dunning > 0 }" x-text="stats?.dunning?.blocklisted_via_dunning ?? 0"></span>
-            </div>
         </div>
 
         <div class="dunning-stages" x-show="stats?.dunning?.total_in_dunning > 0">

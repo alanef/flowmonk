@@ -323,6 +323,22 @@ class ListmonkClient
     }
 
     /**
+     * Delete a subscriber from Listmonk
+     *
+     * @param int $subscriberId Subscriber ID
+     * @return bool Success status
+     */
+    public function deleteSubscriber(int $subscriberId): bool
+    {
+        try {
+            $this->request('DELETE', "subscribers/$subscriberId");
+            return true;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    /**
      * Get all confirmed subscriber IDs for given DOI lists (batch query)
      *
      * This is much faster than checking each subscriber individually.

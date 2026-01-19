@@ -30,4 +30,3 @@ youtrack-issues.json
 
 # Cloudflared
 cloudflared/email-tunnel-credentials.json
-templates/
