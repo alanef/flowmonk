@@ -491,16 +491,25 @@ class DunningProcessor
         }
 
         // Set status to blocklisted via Listmonk API
-        $success = $this->client->setSubscriberStatus($listmonkId, 'blocklisted');
+        try {
+            $success = $this->client->setSubscriberStatus($listmonkId, 'blocklisted');
 
-        if ($success) {
-            // Delete the dunning record since we're done
-            $this->db->deleteDunning($subscriberId, $listId);
-            $this->logger->info("[$email] Blocklisted after 21 days unconfirmed");
-        } else {
-            $this->logger->error("[$email] Failed to blocklist subscriber");
+            if ($success) {
+                // Delete the dunning record since we're done
+                $this->db->deleteDunning($subscriberId, $listId);
+                $this->logger->info("[$email] Blocklisted after 21 days unconfirmed");
+            } else {
+                $this->logger->error("[$email] Failed to blocklist subscriber");
+            }
+
+            return $success;
+        } catch (Exception $e) {
+            // Subscriber may have been deleted from Listmonk - clean up local record
+            $this->logger->warn("[$email] Could not blocklist (subscriber may be deleted): " . $e->getMessage());
+            if (!$this->dryRun) {
+                $this->db->deleteDunning($subscriberId, $listId);
+            }
+            return false;
         }
-
-        return $success;
     }
 }
