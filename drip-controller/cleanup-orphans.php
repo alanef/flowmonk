@@ -11,8 +11,8 @@
  *   php cleanup-orphans.php --run     # Actually mark as deleted
  */
 
-require_once __DIR__ . '/../src/Listmonk.php';
-require_once __DIR__ . '/../../shared/src/SequenceDatabase.php';
+require_once __DIR__ . '/src/ListmonkClient.php';
+require_once __DIR__ . '/shared/SequenceDatabase.php';
 
 $dryRun = !in_array('--run', $argv);
 
@@ -22,7 +22,7 @@ if ($dryRun) {
 
 try {
     $db = new SequenceDatabase();
-    $listmonk = new Listmonk();
+    $listmonk = new ListmonkClient();
 } catch (Exception $e) {
     echo "Error: " . $e->getMessage() . "\n";
     exit(1);
@@ -67,7 +67,7 @@ foreach ($batches as $batchIndex => $batch) {
 
         $page = 1;
         do {
-            $result = $listmonk->getSubscribers($query, $page, 100);
+            $result = $listmonk->querySubscribers($query, $page, 100);
             $found = $result['data']['results'] ?? [];
 
             foreach ($found as $sub) {
