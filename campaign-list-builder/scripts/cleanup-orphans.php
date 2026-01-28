@@ -28,13 +28,13 @@ try {
     exit(1);
 }
 
-// Get all subscribers with listmonk_ids that have active drips
+// Get all subscribers with listmonk_ids that have non-deleted drips
 $stmt = $db->getDb()->query("
     SELECT DISTINCT s.id, s.listmonk_id, s.email
     FROM subscribers s
     JOIN subscriber_drips d ON s.id = d.subscriber_id
     WHERE s.listmonk_id IS NOT NULL
-      AND d.stage NOT IN ('deleted', 'complete')
+      AND d.stage != 'deleted'
     ORDER BY s.id
 ");
 $subscribers = $stmt->fetchAll(PDO::FETCH_ASSOC);

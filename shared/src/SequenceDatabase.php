@@ -1167,12 +1167,12 @@ class SequenceDatabase
 
         $subscriberId = (int)$subscriber['id'];
 
-        // Update all drips for this subscriber to deleted
+        // Update all drips for this subscriber to deleted (including completed ones)
         $now = (new DateTime('now', new DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
         $stmt = $this->db->prepare("
             UPDATE subscriber_drips
             SET stage = 'deleted', next_send = NULL, updated_at = ?
-            WHERE subscriber_id = ? AND stage NOT IN ('deleted', 'complete')
+            WHERE subscriber_id = ? AND stage != 'deleted'
         ");
         return $stmt->execute([$now, $subscriberId]);
     }
