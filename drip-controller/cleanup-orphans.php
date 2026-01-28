@@ -14,6 +14,8 @@
 require_once __DIR__ . '/src/ListmonkClient.php';
 require_once __DIR__ . '/shared/SequenceDatabase.php';
 
+define('DATA_DIR', '/data');
+
 $dryRun = !in_array('--run', $argv);
 
 if ($dryRun) {
@@ -21,7 +23,7 @@ if ($dryRun) {
 }
 
 try {
-    $db = new SequenceDatabase();
+    $db = new SequenceDatabase(DATA_DIR);
     $listmonk = new ListmonkClient();
 } catch (Exception $e) {
     echo "Error: " . $e->getMessage() . "\n";
