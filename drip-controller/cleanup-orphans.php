@@ -29,7 +29,7 @@ try {
 }
 
 // Get all subscribers with listmonk_ids that have non-deleted drips
-$stmt = $db->getDb()->query("
+$subscribers = $db->executeRawQuery("
     SELECT DISTINCT s.id, s.listmonk_id, s.email
     FROM subscribers s
     JOIN subscriber_drips d ON s.id = d.subscriber_id
@@ -37,7 +37,6 @@ $stmt = $db->getDb()->query("
       AND d.stage != 'deleted'
     ORDER BY s.id
 ");
-$subscribers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $totalCount = count($subscribers);
 echo "Found $totalCount subscribers with active drips to check\n\n";
