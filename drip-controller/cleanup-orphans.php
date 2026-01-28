@@ -28,18 +28,16 @@ try {
     exit(1);
 }
 
-// Get all subscribers with listmonk_ids that have non-deleted drips
+// Get all subscribers with listmonk_ids (check all, not just those with drips)
 $subscribers = $db->executeRawQuery("
-    SELECT DISTINCT s.id, s.listmonk_id, s.email
-    FROM subscribers s
-    JOIN subscriber_drips d ON s.id = d.subscriber_id
-    WHERE s.listmonk_id IS NOT NULL
-      AND d.stage != 'deleted'
-    ORDER BY s.id
+    SELECT id, listmonk_id, email
+    FROM subscribers
+    WHERE listmonk_id IS NOT NULL
+    ORDER BY id
 ");
 
 $totalCount = count($subscribers);
-echo "Found $totalCount subscribers with active drips to check\n\n";
+echo "Found $totalCount subscribers to check against Listmonk\n\n";
 
 if ($totalCount === 0) {
     echo "Nothing to do.\n";
