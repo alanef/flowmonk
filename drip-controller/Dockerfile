@@ -18,6 +18,7 @@ COPY drip-controller/config/ /app/config/
 COPY drip-controller/src/ /app/src/
 COPY drip-controller/drip-runner.php /app/
 COPY drip-controller/migrate-to-sqlite.php /app/
+COPY drip-controller/cleanup-orphans.php /app/
 COPY drip-controller/healthcheck.sh /app/
 COPY drip-controller/entrypoint.sh /entrypoint.sh
 
