@@ -82,15 +82,30 @@ yt -p ABC status            # Use project ABC instead of .env.youtrack default
 ### Subscriber Attributes
 
 Plugin-specific drip tracking uses prefix `p{pluginId}_`:
-- `pDEE_drip_stage`: Current stage (`free_1`, `trial_2`, `pro_1`, `complete`, `error`, `stopped`)
+- `pDEE_drip_stage`: Current stage (`free_1`, `trial_2`, `pro_1`, `complete`, `error`, `stopped`, `deleted`)
 - `pDEE_drip_next`: ISO 8601 datetime for next email
 - `pDEE_status`: User type (`free`, `trial`, `pro`)
+
+Drip stage meanings:
+- `free_1`, `trial_1`, `pro_1`, etc.: Active in sequence
+- `complete`: Finished all emails in sequence
+- `stopped`: Unsubscribed or blocklisted in Listmonk
+- `error`: Max send failures reached (3 attempts)
+- `deleted`: Subscriber was deleted from Listmonk (404 on lookup)
 
 Global dunning tracking:
 - `doi_stage`: Dunning stage (`dunning_1` through `dunning_blocklist`)
 - `doi_next`: Next reminder datetime
 - `doi_started`: When dunning initiated
-- `marketing_allowed`: Must be `true` for any emails to send
+- `marketing_allowed`: Freemius marketing consent (stored in attribs for tracking)
+
+### Marketing Consent & Subscriber Status
+
+Listmonk subscriber `status` is set based on Freemius marketing consent:
+- Freemius `is_marketing_allowed = false` → Listmonk `status = 'blocklisted'`
+- Freemius `is_marketing_allowed = true` → Listmonk `status = 'enabled'`
+
+Re-opt-in logic: If a subscriber was blocklisted due to Freemius opt-out (previous `marketing_allowed` attribute was `false`) and they later opt back in, they are re-enabled. However, if they unsubscribed via Listmonk directly, a new Freemius webhook with `marketing_allowed = true` will NOT re-enable them (respects Listmonk unsubscribe).
 
 ### Double Opt-In Handling
 

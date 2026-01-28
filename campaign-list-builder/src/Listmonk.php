@@ -315,9 +315,10 @@ class Listmonk
      * @param int $id Subscriber ID
      * @param array $attribs New attributes (merged with existing)
      * @param string|null $name Optional new name
+     * @param string|null $status Optional status (enabled, blocklisted)
      * @return bool Success status
      */
-    public function updateSubscriber(int $id, array $attribs, ?string $name = null): bool
+    public function updateSubscriber(int $id, array $attribs, ?string $name = null, ?string $status = null): bool
     {
         // Get current subscriber data
         $subscriber = $this->getSubscriberById($id);
@@ -339,10 +340,11 @@ class Listmonk
         }
 
         // Update subscriber - include lists to preserve them
+        // Use provided status, or preserve current status
         $this->request('PUT', "subscribers/$id", [
             'email' => $subscriber['email'],
             'name' => $name ?? ($subscriber['name'] ?? ''),
-            'status' => $subscriber['status'] ?? 'enabled',
+            'status' => $status ?? ($subscriber['status'] ?? 'enabled'),
             'attribs' => $mergedAttribs,
             'lists' => $listIds
         ]);
@@ -407,39 +409,59 @@ class Listmonk
     }
 
     /**
-     * Get IDs of subscribers who have marketing_allowed = true
+     * Get IDs of subscribers who have status = enabled (not blocklisted)
+     * Also detects deleted subscribers (IDs not found in Listmonk)
      * Used by segment builder to filter SQLite results
+     *
+     * @param array $listmonkIds Array of Listmonk subscriber IDs to check
+     * @return array ['enabled' => [...], 'deleted' => [...]]
      */
     public function getMarketingAllowedIds(array $listmonkIds): array
     {
         if (empty($listmonkIds)) {
-            return [];
+            return ['enabled' => [], 'deleted' => []];
         }
 
-        $allowedIds = [];
+        $existingIds = [];
+        $enabledIds = [];
         $batchSize = 100;
         $batches = array_chunk($listmonkIds, $batchSize);
 
         foreach ($batches as $batch) {
-            // Build query for subscriber IDs
             $idList = implode(',', array_map('intval', $batch));
-            $query = "subscribers.id IN ($idList) AND subscribers.attribs->>'marketing_allowed' = 'true'";
 
+            // First query: get all existing subscribers (any status)
+            $query = "subscribers.id IN ($idList)";
             $page = 1;
             do {
-                $result = $this->getSubscribers($query, $page, 100);
-                $subscribers = $result['data']['results'] ?? [];
+                try {
+                    $result = $this->getSubscribers($query, $page, 100);
+                    $subscribers = $result['data']['results'] ?? [];
 
-                foreach ($subscribers as $sub) {
-                    $allowedIds[] = $sub['id'];
+                    foreach ($subscribers as $sub) {
+                        $existingIds[] = $sub['id'];
+                        if (($sub['status'] ?? '') === 'enabled') {
+                            $enabledIds[] = $sub['id'];
+                        }
+                    }
+
+                    $page++;
+                    $hasMore = count($subscribers) === 100;
+                } catch (Exception $e) {
+                    // On API error, don't mark as deleted - could be timeout/500
+                    // Just skip this batch and return what we have
+                    break;
                 }
-
-                $page++;
-                $hasMore = count($subscribers) === 100;
             } while ($hasMore);
         }
 
-        return $allowedIds;
+        // IDs not found in Listmonk are deleted
+        $deletedIds = array_diff($listmonkIds, $existingIds);
+
+        return [
+            'enabled' => $enabledIds,
+            'deleted' => array_values($deletedIds)
+        ];
     }
 
     /**

@@ -150,6 +150,11 @@ class DripProcessor
                         return 'skipped';
                     }
                 }
+            } catch (ListmonkNotFoundException $e) {
+                // Subscriber was deleted from Listmonk - mark as deleted in SQLite
+                $this->logger->info("[$email] Subscriber deleted from Listmonk, marking drip as deleted");
+                $this->db->updateDrip($dripId, ['stage' => 'deleted', 'next_send' => null]);
+                return 'skipped';
             } catch (Exception $e) {
                 $this->logger->warn("[$email] Could not fetch subscriber from Listmonk: " . $e->getMessage());
                 // Continue without Listmonk check if we can't reach it

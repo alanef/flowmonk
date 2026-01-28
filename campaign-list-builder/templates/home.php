@@ -47,7 +47,7 @@
         <div class="form-group">
             <label class="checkbox-label">
                 <input type="checkbox" x-model="marketingRequired">
-                Filter by Listmonk marketing_allowed = true
+                Filter by Listmonk status = enabled (excludes blocklisted)
             </label>
         </div>
 
@@ -93,7 +93,7 @@
 
         <p class="total-count">
             <span x-text="totalCount"></span> subscribers found
-            <span x-show="marketingRequired"> (filtered by marketing_allowed)</span>
+            <span x-show="marketingRequired"> (filtered by status=enabled)</span>
         </p>
 
         <!-- Results Table -->
@@ -273,6 +273,9 @@ FROM subscribers s
 JOIN subscriber_drips d ON s.id = d.subscriber_id`;
 
             const conditions = [];
+
+            // Always exclude deleted subscribers (deleted from Listmonk)
+            conditions.push(`d.stage != 'deleted'`);
 
             // Product filter
             if (this.selectedProduct) {

@@ -1157,11 +1157,20 @@ function handleApi(string $uri, string $method): void
                 if ($marketingRequired && !empty($results)) {
                     $listmonkIds = array_filter(array_column($results, 'listmonk_id'));
                     if (!empty($listmonkIds)) {
-                        $marketingAllowed = $listmonk->getMarketingAllowedIds($listmonkIds);
+                        $marketingCheck = $listmonk->getMarketingAllowedIds($listmonkIds);
+                        $enabledIds = $marketingCheck['enabled'] ?? [];
+                        $deletedIds = $marketingCheck['deleted'] ?? [];
 
-                        // Filter results to only those with marketing allowed
-                        $results = array_filter($results, function($row) use ($marketingAllowed) {
-                            return isset($row['listmonk_id']) && in_array($row['listmonk_id'], $marketingAllowed);
+                        // Mark deleted subscribers in SQLite (cleanup orphans)
+                        if (!empty($deletedIds)) {
+                            foreach ($deletedIds as $deletedListmonkId) {
+                                $seqDb->markSubscriberDeletedByListmonkId($deletedListmonkId);
+                            }
+                        }
+
+                        // Filter results to only those with status enabled
+                        $results = array_filter($results, function($row) use ($enabledIds) {
+                            return isset($row['listmonk_id']) && in_array($row['listmonk_id'], $enabledIds);
                         });
                         $results = array_values($results);
                     }
@@ -1242,8 +1251,18 @@ function handleApi(string $uri, string $method): void
                 $listmonkIds = array_filter(array_column($results, 'listmonk_id'));
 
                 if ($marketingRequired && !empty($listmonkIds)) {
-                    $marketingAllowed = $listmonk->getMarketingAllowedIds($listmonkIds);
-                    $listmonkIds = array_intersect($listmonkIds, $marketingAllowed);
+                    $marketingCheck = $listmonk->getMarketingAllowedIds($listmonkIds);
+                    $enabledIds = $marketingCheck['enabled'] ?? [];
+                    $deletedIds = $marketingCheck['deleted'] ?? [];
+
+                    // Mark deleted subscribers in SQLite (cleanup orphans)
+                    if (!empty($deletedIds)) {
+                        foreach ($deletedIds as $deletedListmonkId) {
+                            $seqDb->markSubscriberDeletedByListmonkId($deletedListmonkId);
+                        }
+                    }
+
+                    $listmonkIds = array_intersect($listmonkIds, $enabledIds);
                 }
 
                 $listmonkIds = array_values(array_unique($listmonkIds));

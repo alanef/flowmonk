@@ -82,6 +82,11 @@ class ListmonkClient
                 throw new RuntimeException("Rate limited after $maxRetries attempts");
             }
 
+            if ($httpCode === 404) {
+                $message = $decoded['message'] ?? $response;
+                throw new ListmonkNotFoundException("Not found: $message");
+            }
+
             if ($httpCode >= 400) {
                 $message = $decoded['message'] ?? $response;
                 throw new RuntimeException("API error ($httpCode): $message");

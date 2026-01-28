@@ -194,6 +194,7 @@ class WebhookHandler
             // Avoid updateSubscriber calls which can trigger DOI re-confirmation emails
             $existingAttribs = $existing['attribs'] ?? [];
             $existingName = $existing['name'] ?? '';
+            $existingStatus = $existing['status'] ?? 'enabled';
 
             // Check if marketing_allowed changed
             $existingMarketingAllowed = $existingAttribs['marketing_allowed'] ?? false;
@@ -202,10 +203,32 @@ class WebhookHandler
             $newMarketingBool = ($newMarketingAllowed === true || $newMarketingAllowed === 'true');
             $marketingChanged = ($existingMarketingBool !== $newMarketingBool);
 
+            // Determine if Listmonk status should change based on marketing_allowed
+            // Logic:
+            // - If Freemius marketing = false → always blocklist
+            // - If Freemius marketing = true AND previous attribute was false → re-enable (Freemius re-opt-in)
+            // - If Freemius marketing = true AND previous attribute was true/not set → don't change (respect Listmonk unsubscribe)
+            $newStatus = null;
+            if (!$newMarketingBool) {
+                // Freemius opt-out: always blocklist
+                if ($existingStatus !== 'blocklisted') {
+                    $newStatus = 'blocklisted';
+                    $this->log('info', "[$email] Freemius marketing=false, blocklisting subscriber");
+                }
+            } elseif ($newMarketingBool && !$existingMarketingBool && $existingStatus === 'blocklisted') {
+                // Freemius re-opt-in: previous attribute was false, now true → re-enable
+                $newStatus = 'enabled';
+                $this->log('info', "[$email] Freemius marketing re-opt-in, re-enabling subscriber");
+            }
+            // If marketing=true but previous was also true/not set, don't change status
+            // This respects any Listmonk-side unsubscribe
+
             // Check if name changed
             $nameChanged = ($existingName !== $name && !empty($name));
 
-            if ($marketingChanged || $nameChanged) {
+            $needsUpdate = $marketingChanged || $nameChanged || $newStatus !== null;
+
+            if ($needsUpdate) {
                 // Something changed - check if safe to update
                 $isSafeToUpdate = true;
 
@@ -225,8 +248,9 @@ class WebhookHandler
                     $changes = [];
                     if ($marketingChanged) $changes[] = "marketing_allowed: $existingMarketingBool -> $newMarketingBool";
                     if ($nameChanged) $changes[] = "name: '$existingName' -> '$name'";
+                    if ($newStatus) $changes[] = "status: $existingStatus -> $newStatus";
                     $this->log('info', "[$email] Updating Listmonk: " . implode(', ', $changes));
-                    $this->listmonk->updateSubscriber($listmonkId, $listmonkAttribs, $name);
+                    $this->listmonk->updateSubscriber($listmonkId, $listmonkAttribs, $name, $newStatus);
                 }
             } else {
                 $this->log('debug', "[$email] No changes detected, skipping Listmonk update");
@@ -239,9 +263,14 @@ class WebhookHandler
             }
         } else {
             // Create new subscriber in Listmonk
-            $this->log('info', "Creating new subscriber: $email");
+            // Set initial status based on marketing_allowed
+            $newMarketingAllowed = $listmonkAttribs['marketing_allowed'] ?? false;
+            $newMarketingBool = ($newMarketingAllowed === true || $newMarketingAllowed === 'true');
+            $initialStatus = $newMarketingBool ? 'enabled' : 'blocklisted';
+
+            $this->log('info', "Creating new subscriber: $email (status: $initialStatus)");
             $listIds = $listId ? [$listId] : [];
-            $newSubscriber = $this->listmonk->createSubscriber($email, $name, $listmonkAttribs, $listIds);
+            $newSubscriber = $this->listmonk->createSubscriber($email, $name, $listmonkAttribs, $listIds, $initialStatus);
             $listmonkId = $newSubscriber['id'] ?? null;
         }
 

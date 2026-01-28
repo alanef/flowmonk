@@ -486,8 +486,8 @@ class DunningProcessor
 
         // No email mode - skip Listmonk delete but update SQLite
         if ($this->noEmail) {
-            $this->logger->info("[$email] [NO EMAIL] Skipping Listmonk delete, deleting dunning record only");
-            $this->db->deleteDunning($subscriberId, $listId);
+            $this->logger->info("[$email] [NO EMAIL] Skipping Listmonk delete, deleting subscriber from SQLite only");
+            $this->db->deleteSubscriber($subscriberId);
             return true;
         }
 
@@ -496,18 +496,18 @@ class DunningProcessor
             $success = $this->client->deleteSubscriber($listmonkId);
 
             if ($success) {
-                // Delete the dunning record since subscriber is gone
-                $this->db->deleteDunning($subscriberId, $listId);
-                $this->logger->info("[$email] Deleted after 21 days unconfirmed");
+                // Delete subscriber and all related records from SQLite
+                $this->db->deleteSubscriber($subscriberId);
+                $this->logger->info("[$email] Deleted from Listmonk and SQLite after 21 days unconfirmed");
             } else {
                 $this->logger->error("[$email] Failed to delete subscriber from Listmonk");
             }
 
             return $success;
         } catch (Exception $e) {
-            // Subscriber may have already been deleted - clean up local record anyway
-            $this->logger->warn("[$email] Could not delete (may already be gone): " . $e->getMessage());
-            $this->db->deleteDunning($subscriberId, $listId);
+            // Subscriber may have already been deleted from Listmonk - clean up SQLite anyway
+            $this->logger->warn("[$email] Could not delete from Listmonk (may already be gone): " . $e->getMessage());
+            $this->db->deleteSubscriber($subscriberId);
             return false;
         }
     }

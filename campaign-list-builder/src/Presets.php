@@ -56,19 +56,19 @@ class Presets
     {
         return [
             [
-                'id' => 'marketing-opted-in',
-                'name' => 'All Marketing Opted-In',
-                'query' => "subscribers.attribs->>'marketing_allowed' = 'true'",
+                'id' => 'status-enabled',
+                'name' => 'Status Enabled (Not Blocklisted)',
+                'query' => "subscribers.status = 'enabled'",
                 'conditions' => [
-                    ['attribute' => 'marketing_allowed', 'operator' => '=', 'value' => 'true', 'conjunction' => 'AND']
+                    ['attribute' => 'status', 'operator' => '=', 'value' => 'enabled', 'conjunction' => 'AND']
                 ]
             ],
             [
-                'id' => 'marketing-not-set',
-                'name' => 'Marketing Not Set',
-                'query' => "(subscribers.attribs->>'marketing_allowed' IS NULL OR subscribers.attribs->>'marketing_allowed' = '')",
+                'id' => 'status-blocklisted',
+                'name' => 'Status Blocklisted',
+                'query' => "subscribers.status = 'blocklisted'",
                 'conditions' => [
-                    ['attribute' => 'marketing_allowed', 'operator' => 'IS NULL', 'value' => '', 'conjunction' => 'AND']
+                    ['attribute' => 'status', 'operator' => '=', 'value' => 'blocklisted', 'conjunction' => 'AND']
                 ]
             ],
             [

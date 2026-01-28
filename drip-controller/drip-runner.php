@@ -27,6 +27,7 @@ define('DATA_DIR', '/data');
 
 // Load classes
 require_once __DIR__ . '/src/Logger.php';
+require_once __DIR__ . '/src/ListmonkNotFoundException.php';
 require_once __DIR__ . '/src/ListmonkClient.php';
 require_once __DIR__ . '/src/SequenceManager.php';
 require_once __DIR__ . '/shared/SequenceDatabase.php';

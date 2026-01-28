@@ -424,6 +424,20 @@
 .funnel-stage.error .stage-name {
     color: rgba(255,255,255,0.8);
 }
+.funnel-stage.deleted {
+    background: #6c757d;
+    color: white;
+}
+.funnel-stage.deleted .stage-name {
+    color: rgba(255,255,255,0.8);
+}
+.funnel-stage.stopped {
+    background: #ffc107;
+    color: #212529;
+}
+.funnel-stage.stopped .stage-name {
+    color: rgba(0,0,0,0.6);
+}
 .product-time-stats {
     display: flex;
     gap: 2rem;
@@ -670,6 +684,8 @@ function dripStats() {
         getFunnelStageClass(stage) {
             if (stage === 'complete') return 'complete';
             if (stage === 'error') return 'error';
+            if (stage === 'deleted') return 'deleted';
+            if (stage === 'stopped') return 'stopped';
             return '';
         },
 

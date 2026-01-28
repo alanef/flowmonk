@@ -13,7 +13,7 @@ class QueryBuilder
      * Use list membership queries for product targeting instead
      */
     public const ATTRIBUTES = [
-        'marketing_allowed' => ['type' => 'boolean', 'values' => ['true', 'false']],
+        'status' => ['type' => 'enum', 'values' => ['enabled', 'blocklisted'], 'column' => true],
         'country' => ['type' => 'text', 'values' => []],
         'freemius_user_id' => ['type' => 'text', 'values' => []],
     ];
@@ -89,7 +89,13 @@ class QueryBuilder
      */
     private static function buildCondition(string $attribute, string $operator, string $value): string
     {
-        $field = "subscribers.attribs->>'$attribute'";
+        // Check if this is a direct column (like status) or a JSON attribute
+        $attrConfig = self::ATTRIBUTES[$attribute] ?? [];
+        $isColumn = $attrConfig['column'] ?? false;
+
+        $field = $isColumn
+            ? "subscribers.$attribute"
+            : "subscribers.attribs->>'$attribute'";
 
         switch ($operator) {
             case '=':

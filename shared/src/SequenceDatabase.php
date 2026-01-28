@@ -1119,6 +1119,65 @@ class SequenceDatabase
     }
 
     /**
+     * Delete subscriber and all related records (drips, dunning)
+     * Call this when subscriber is deleted from Listmonk
+     */
+    public function deleteSubscriber(int $subscriberId): bool
+    {
+        try {
+            $this->db->beginTransaction();
+
+            // Delete drip records
+            $stmt = $this->db->prepare("DELETE FROM subscriber_drips WHERE subscriber_id = ?");
+            $stmt->execute([$subscriberId]);
+
+            // Delete dunning records
+            $stmt = $this->db->prepare("DELETE FROM subscriber_dunning WHERE subscriber_id = ?");
+            $stmt->execute([$subscriberId]);
+
+            // Delete subscriber
+            $stmt = $this->db->prepare("DELETE FROM subscribers WHERE id = ?");
+            $stmt->execute([$subscriberId]);
+
+            $this->db->commit();
+            return true;
+        } catch (Exception $e) {
+            $this->db->rollBack();
+            return false;
+        }
+    }
+
+    /**
+     * Mark all drips for a subscriber as deleted (subscriber was deleted from Listmonk)
+     * Used for lazy cleanup when campaign builder detects orphaned listmonk_ids
+     *
+     * @param int $listmonkId The Listmonk subscriber ID
+     * @return bool Success status
+     */
+    public function markSubscriberDeletedByListmonkId(int $listmonkId): bool
+    {
+        // Find subscriber by listmonk_id
+        $stmt = $this->db->prepare("SELECT id FROM subscribers WHERE listmonk_id = ?");
+        $stmt->execute([$listmonkId]);
+        $subscriber = $stmt->fetch();
+
+        if (!$subscriber) {
+            return false; // Subscriber not found in SQLite
+        }
+
+        $subscriberId = (int)$subscriber['id'];
+
+        // Update all drips for this subscriber to deleted
+        $now = (new DateTime('now', new DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
+        $stmt = $this->db->prepare("
+            UPDATE subscriber_drips
+            SET stage = 'deleted', next_send = NULL, updated_at = ?
+            WHERE subscriber_id = ? AND stage NOT IN ('deleted', 'complete')
+        ");
+        return $stmt->execute([$now, $subscriberId]);
+    }
+
+    /**
      * Get all dunning records due for reminder
      */
     public function getDueDunning(): array
