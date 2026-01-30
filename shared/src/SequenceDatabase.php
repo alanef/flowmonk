@@ -1720,4 +1720,20 @@ class SequenceDatabase
         $stmt->execute();
         return $stmt->fetchAll();
     }
+
+    /**
+     * Get listmonk_ids for subscribers at a specific stage for a product
+     * Used for checking DOI confirmation status on step 1 stages
+     */
+    public function getSubscriberIdsAtStage(string $productId, string $stage): array
+    {
+        $stmt = $this->db->prepare("
+            SELECT s.listmonk_id
+            FROM subscriber_drips d
+            JOIN subscribers s ON d.subscriber_id = s.id
+            WHERE d.product_id = ? AND d.stage = ? AND s.listmonk_id IS NOT NULL
+        ");
+        $stmt->execute([$productId, $stage]);
+        return array_filter(array_column($stmt->fetchAll(), 'listmonk_id'));
+    }
 }

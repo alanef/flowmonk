@@ -501,4 +501,55 @@ class Listmonk
 
         return $result;
     }
+
+    /**
+     * Get subscription status for multiple subscribers on a specific list
+     * Returns: ['confirmed' => count, 'unconfirmed' => count]
+     */
+    public function getSubscriptionStatusCounts(array $listmonkIds, int $listId): array
+    {
+        if (empty($listmonkIds)) {
+            return ['confirmed' => 0, 'unconfirmed' => 0];
+        }
+
+        $confirmed = 0;
+        $unconfirmed = 0;
+        $batchSize = 100;
+        $batches = array_chunk($listmonkIds, $batchSize);
+
+        foreach ($batches as $batch) {
+            $idList = implode(',', array_map('intval', $batch));
+            $query = "subscribers.id IN ($idList)";
+
+            $page = 1;
+            do {
+                try {
+                    $response = $this->getSubscribers($query, $page, 100);
+                    $subscribers = $response['data']['results'] ?? [];
+
+                    foreach ($subscribers as $sub) {
+                        $lists = $sub['lists'] ?? [];
+                        foreach ($lists as $subList) {
+                            if (($subList['id'] ?? null) == $listId) {
+                                $status = $subList['subscription_status'] ?? 'unconfirmed';
+                                if ($status === 'confirmed') {
+                                    $confirmed++;
+                                } else {
+                                    $unconfirmed++;
+                                }
+                                break;
+                            }
+                        }
+                    }
+
+                    $page++;
+                    $hasMore = count($subscribers) === 100;
+                } catch (Exception $e) {
+                    break;
+                }
+            } while ($hasMore);
+        }
+
+        return ['confirmed' => $confirmed, 'unconfirmed' => $unconfirmed];
+    }
 }

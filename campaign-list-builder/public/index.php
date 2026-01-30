@@ -508,6 +508,22 @@ function handleApi(string $uri, string $method): void
                 ]
             ];
 
+            // Get product list mappings first (needed for step 1 splits)
+            $productListIds = $seqDb->getProductListIds();
+
+            // Cache DOI status and list info for products
+            $productListInfo = [];
+            foreach ($productListIds as $pId => $listId) {
+                $list = $listmonk->getList($listId);
+                if ($list) {
+                    $productListInfo[$pId] = [
+                        'list_id' => $listId,
+                        'is_doi' => ($list['optin'] ?? 'single') === 'double',
+                        'list' => $list
+                    ];
+                }
+            }
+
             // Copy product data from SQLite stats
             foreach ($products as $product) {
                 $productId = $product['id'];
@@ -518,12 +534,33 @@ function handleApi(string $uri, string $method): void
                     'funnel' => $sqliteProduct['funnel'] ?? [],
                     'total_active' => $sqliteProduct['total_active'] ?? 0,
                     'this_week' => $sqliteProduct['this_week'] ?? ['completed' => 0],
-                    'this_month' => $sqliteProduct['this_month'] ?? ['completed' => 0]
+                    'this_month' => $sqliteProduct['this_month'] ?? ['completed' => 0],
+                    'step1_split' => []
                 ];
+
+                // Add step 1 confirmed/unconfirmed splits for DOI lists
+                $listInfo = $productListInfo[$productId] ?? null;
+                if ($listInfo && $listInfo['is_doi']) {
+                    $listId = $listInfo['list_id'];
+                    $step1Stages = ['free_1', 'trial_1', 'premium_1'];
+
+                    foreach ($step1Stages as $stage) {
+                        $funnel = $sqliteProduct['funnel'] ?? [];
+                        if (isset($funnel[$stage]) && $funnel[$stage] > 0) {
+                            // Get listmonk_ids for subscribers at this stage
+                            $listmonkIds = $seqDb->getSubscriberIdsAtStage($productId, $stage);
+
+                            if (!empty($listmonkIds)) {
+                                // Batch check subscription status from Listmonk
+                                $counts = $listmonk->getSubscriptionStatusCounts($listmonkIds, $listId);
+                                $response['by_product'][$productId]['step1_split'][$stage] = $counts;
+                            }
+                        }
+                    }
+                }
             }
 
-            // Get list subscription stats for double opt-in lists (still from Listmonk)
-            $productListIds = $seqDb->getProductListIds();
+            // Get list subscription stats for double opt-in lists (use cached data)
             $listStats = [];
 
             // Clean up old stats occasionally (1% chance per request)
@@ -532,7 +569,9 @@ function handleApi(string $uri, string $method): void
             }
 
             foreach ($productListIds as $productId => $listId) {
-                $list = $listmonk->getList($listId);
+                // Use cached list info from step 1 split processing
+                $listInfo = $productListInfo[$productId] ?? null;
+                $list = $listInfo['list'] ?? null;
                 if (!$list) continue;
 
                 // Use subscriber_statuses values directly (subscriber_count is unreliable)
@@ -540,7 +579,7 @@ function handleApi(string $uri, string $method): void
                 $statusConfirmed = $statuses['confirmed'] ?? 0;
                 $statusUnconfirmed = $statuses['unconfirmed'] ?? 0;
                 $unsubscribed = $statuses['unsubscribed'] ?? 0;
-                $isDoubleOptIn = ($list['optin'] ?? 'single') === 'double';
+                $isDoubleOptIn = $listInfo['is_doi'] ?? false;
 
                 // Total = sum of statuses (matches listmonk UI)
                 $subscriberCount = $statusConfirmed + $statusUnconfirmed + $unsubscribed;

@@ -134,7 +134,17 @@
                     <template x-for="(count, stage) in productData.funnel" :key="stage">
                         <div class="funnel-stage" :class="getFunnelStageClass(stage)">
                             <span class="stage-name" x-text="formatStageName(stage)"></span>
-                            <span class="stage-count" x-text="count"></span>
+                            <!-- Show confirmed/unconfirmed split for step 1 stages -->
+                            <template x-if="productData.step1_split && productData.step1_split[stage]">
+                                <div class="stage-split">
+                                    <span class="split-confirmed" x-text="productData.step1_split[stage].confirmed" title="Confirmed"></span>
+                                    <span class="split-separator">/</span>
+                                    <span class="split-unconfirmed" x-text="productData.step1_split[stage].unconfirmed" title="Unconfirmed"></span>
+                                </div>
+                            </template>
+                            <template x-if="!productData.step1_split || !productData.step1_split[stage]">
+                                <span class="stage-count" x-text="count"></span>
+                            </template>
                         </div>
                     </template>
                 </div>
@@ -409,6 +419,24 @@
 .funnel-stage .stage-count {
     font-size: 1.5rem;
     font-weight: bold;
+}
+.funnel-stage .stage-split {
+    display: flex;
+    align-items: baseline;
+    gap: 0.15rem;
+    font-weight: bold;
+}
+.funnel-stage .split-confirmed {
+    font-size: 1.5rem;
+    color: var(--pico-ins-color);
+}
+.funnel-stage .split-separator {
+    font-size: 1rem;
+    color: var(--pico-muted-color);
+}
+.funnel-stage .split-unconfirmed {
+    font-size: 1.2rem;
+    color: #f0ad4e;
 }
 .funnel-stage.complete {
     background: var(--pico-ins-color);
