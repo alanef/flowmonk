@@ -996,7 +996,7 @@ class SequenceDatabase
                 p.name as product_name,
                 d.status,
                 COUNT(*) as count,
-                SUM(CASE WHEN d.stage IN ('complete', 'error', 'stopped') THEN 0 ELSE 1 END) as active_count
+                SUM(CASE WHEN d.stage IN ('complete', 'error', 'stopped', 'deleted') THEN 0 ELSE 1 END) as active_count
             FROM subscriber_drips d
             JOIN products p ON d.product_id = p.id
             GROUP BY d.product_id, d.status
@@ -1322,13 +1322,13 @@ class SequenceDatabase
         foreach ($products as $product) {
             $productId = $product['id'];
 
-            // In queue (active, not complete/stopped/error/none/imported)
+            // In queue (active, not complete/stopped/error/deleted/none/imported)
             $stmt = $this->db->prepare("
                 SELECT COUNT(*) FROM subscriber_drips
                 WHERE product_id = ?
                   AND is_active = 1
                   AND stage IS NOT NULL
-                  AND stage NOT IN ('complete', 'stopped', 'error', 'none', 'imported')
+                  AND stage NOT IN ('complete', 'stopped', 'error', 'deleted', 'none', 'imported')
             ");
             $stmt->execute([$productId]);
             $inQueue = (int)$stmt->fetchColumn();
@@ -1341,7 +1341,7 @@ class SequenceDatabase
                   AND next_send IS NOT NULL
                   AND next_send <= ?
                   AND stage IS NOT NULL
-                  AND stage NOT IN ('complete', 'stopped', 'error', 'none', 'imported')
+                  AND stage NOT IN ('complete', 'stopped', 'error', 'deleted', 'none', 'imported')
             ");
             $stmt->execute([$productId, $now]);
             $dueNow = (int)$stmt->fetchColumn();
@@ -1400,7 +1400,7 @@ class SequenceDatabase
             case 'due':
                 $whereConditions[] = "d.next_send IS NOT NULL AND d.next_send != '' AND d.next_send <= ?";
                 $whereConditions[] = "d.is_active = 1";
-                $whereConditions[] = "d.stage IS NOT NULL AND d.stage != '' AND d.stage NOT IN ('complete', 'stopped', 'error', 'none', 'imported')";
+                $whereConditions[] = "d.stage IS NOT NULL AND d.stage != '' AND d.stage NOT IN ('complete', 'stopped', 'error', 'deleted', 'none', 'imported')";
                 $params[] = $now;
                 break;
             case 'error':
@@ -1412,7 +1412,7 @@ class SequenceDatabase
             case 'active':
             default:
                 $whereConditions[] = "d.is_active = 1";
-                $whereConditions[] = "d.stage IS NOT NULL AND d.stage != '' AND d.stage NOT IN ('complete', 'stopped', 'error', 'none', 'imported')";
+                $whereConditions[] = "d.stage IS NOT NULL AND d.stage != '' AND d.stage NOT IN ('complete', 'stopped', 'error', 'deleted', 'none', 'imported')";
                 break;
         }
 
@@ -1560,7 +1560,7 @@ class SequenceDatabase
                 WHERE product_id = ?
                   AND is_active = 1
                   AND stage IS NOT NULL
-                  AND stage NOT IN ('complete', 'stopped', 'error', 'none', 'imported')
+                  AND stage NOT IN ('complete', 'stopped', 'error', 'deleted', 'none', 'imported')
             ");
             $stmt->execute([$productId]);
             $productData['total_active'] = (int)$stmt->fetchColumn();
