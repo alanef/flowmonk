@@ -155,3 +155,13 @@ printenv | grep -E '^(LISTMONK_|LOG_LEVEL|DRY_RUN|DATABASE_)' > /etc/environment
 | Quick PayPal Payments (QPP) | 5623 | quick-paypal-payments |
 
 Free-only plugins (no Freemius): SUE, SWEGTS, CFCS, SSGM, RSHFD, MMT, LHF, FS, AUM
+
+## Deployment (Coolify)
+
+### Known Issue: Listmonk crashes when deploying campaign-list-builder
+
+There's a dependency between services. When deploying campaign-list-builder, Listmonk may crash and need to be restarted. Deploy in this order:
+1. Deploy campaign-list-builder
+2. Check if Listmonk is responding
+3. If not, restart Listmonk container
+4. Then deploy drip-controller if needed
