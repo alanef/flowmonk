@@ -322,7 +322,18 @@ class DunningProcessor
                     return 'confirmed';
                 }
             } catch (Exception $e) {
-                $this->logger->warn("[$email] Could not check confirmation: " . $e->getMessage());
+                $errorMsg = $e->getMessage();
+                $this->logger->warn("[$email] Could not check confirmation: " . $errorMsg);
+
+                // If subscriber was deleted from Listmonk, clean up SQLite
+                if (stripos($errorMsg, 'not found') !== false) {
+                    $this->logger->info("[$email] Subscriber deleted from Listmonk, cleaning up dunning record");
+                    if (!$this->dryRun) {
+                        $this->db->deleteDunning($subscriberId, $listId);
+                        $this->db->markSubscriberDeletedByListmonkId($listmonkId);
+                    }
+                    return 'deleted';
+                }
             }
         }
 
