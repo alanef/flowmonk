@@ -299,6 +299,17 @@ class ListmonkClient
     }
 
     /**
+     * Blocklist a subscriber via Listmonk's dedicated endpoint.
+     * Sets status=blocklisted and unsubscribes from all lists. Unlike a full
+     * PUT /subscribers/{id}, this never triggers an opt-in confirmation email.
+     */
+    public function blocklistSubscriber(int $id): bool
+    {
+        $result = $this->request('PUT', "subscribers/$id/blocklist", []);
+        return ($result['data'] ?? false) === true;
+    }
+
+    /**
      * Get all lists from Listmonk
      *
      * @return array List of list objects

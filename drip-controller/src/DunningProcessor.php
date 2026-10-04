@@ -11,6 +11,10 @@
  * - Day 7: Third reminder (dunning_3)
  * - Day 14: Final reminder (dunning_4)
  * - Day 21: Blocklist subscriber (dunning_blocklist)
+ *
+ * Expired subscribers are blocklisted in Listmonk, not deleted, so the address
+ * stays suppressed: Listmonk won't mail it and the webhook won't re-add it.
+ * Every step is recorded in dunning_events for per-step conversion stats.
  */
 
 class DunningProcessor
@@ -44,11 +48,11 @@ class DunningProcessor
     /**
      * Process all dunning actions using SQLite
      *
-     * @return array ['initiated' => int, 'sent' => int, 'deleted' => int, 'confirmed' => int, 'skipped' => int]
+     * @return array ['initiated' => int, 'sent' => int, 'expired' => int, 'deleted' => int, 'confirmed' => int, 'skipped' => int]
      */
     public function processDunning(): array
     {
-        $result = ['initiated' => 0, 'sent' => 0, 'deleted' => 0, 'confirmed' => 0, 'skipped' => 0];
+        $result = ['initiated' => 0, 'sent' => 0, 'expired' => 0, 'deleted' => 0, 'confirmed' => 0, 'skipped' => 0];
 
         // 1. Check all active dunning records for confirmed subscribers (BATCH approach)
         $this->logger->debug("Checking active dunning records for confirmations...");
@@ -74,6 +78,7 @@ class DunningProcessor
             if (isset($confirmedMap[$listmonkId]) && in_array($listId, $confirmedMap[$listmonkId])) {
                 if (!$this->dryRun) {
                     $this->db->deleteDunning($subscriberId, $listId);
+                    $this->db->recordDunningEvent($subscriberId, $listId, 'confirmed', $dunning['stage']);
                 }
                 $this->logger->info("[$email] Subscriber confirmed on list $listId - cleared dunning");
                 $result['confirmed']++;
@@ -140,6 +145,7 @@ class DunningProcessor
                     'dunning_1',
                     $firstReminderDate->format('Y-m-d\TH:i:s\Z')
                 );
+                $this->db->recordDunningEvent($subscriberId, $unconfirmedListId, 'initiated', 'dunning_1');
                 $this->logger->info("[$email] Initiated dunning for list $unconfirmedListId");
                 $result['initiated']++;
 
@@ -158,6 +164,9 @@ class DunningProcessor
             switch ($advanceResult) {
                 case 'sent':
                     $result['sent']++;
+                    break;
+                case 'expired':
+                    $result['expired']++;
                     break;
                 case 'deleted':
                     $result['deleted']++;
@@ -299,6 +308,7 @@ class DunningProcessor
                 if ($subscriberStatus === 'blocklisted') {
                     if (!$this->dryRun) {
                         $this->db->deleteDunning($subscriberId, $listId);
+                        $this->db->recordDunningEvent($subscriberId, $listId, 'blocklisted', $currentStage);
                     }
                     $this->logger->info("[$email] Subscriber blocklisted - cleared dunning");
                     return 'skipped';
@@ -308,6 +318,7 @@ class DunningProcessor
                 if ($this->isUnsubscribedFromList($subscriberData, $listId)) {
                     if (!$this->dryRun) {
                         $this->db->deleteDunning($subscriberId, $listId);
+                        $this->db->recordDunningEvent($subscriberId, $listId, 'unsubscribed', $currentStage);
                     }
                     $this->logger->info("[$email] Unsubscribed from list $listId - cleared dunning");
                     return 'skipped';
@@ -317,6 +328,7 @@ class DunningProcessor
                 if ($this->isConfirmedOnList($subscriberData, $listId)) {
                     if (!$this->dryRun) {
                         $this->db->deleteDunning($subscriberId, $listId);
+                        $this->db->recordDunningEvent($subscriberId, $listId, 'confirmed', $currentStage);
                     }
                     $this->logger->info("[$email] Subscriber confirmed - cleared dunning");
                     return 'confirmed';
@@ -331,16 +343,17 @@ class DunningProcessor
                     if (!$this->dryRun) {
                         $this->db->deleteDunning($subscriberId, $listId);
                         $this->db->markSubscriberDeletedByListmonkId($listmonkId);
+                        $this->db->recordDunningEvent($subscriberId, $listId, 'deleted', $currentStage);
                     }
                     return 'deleted';
                 }
             }
         }
 
-        // Special handling for delete stage (subscriber never confirmed after 21 days)
+        // Final stage: never confirmed after 21 days - blocklist as suppression
         if ($currentStage === 'dunning_blocklist') {
-            $success = $this->deleteUnconfirmedSubscriber($dunning);
-            return $success ? 'deleted' : 'skipped';
+            $success = $this->expireUnconfirmedSubscriber($dunning);
+            return $success ? 'expired' : 'skipped';
         }
 
         // Send reminder email (resend opt-in confirmation)
@@ -367,6 +380,7 @@ class DunningProcessor
             'stage' => $nextStage,
             'next_reminder' => $nextDate,
         ]);
+        $this->db->recordDunningEvent($subscriberId, $listId, 'sent', $currentStage);
         $this->logger->info("[$email] Advanced dunning to $nextStage, next: $nextDate");
 
         return 'sent';
@@ -475,10 +489,13 @@ class DunningProcessor
     }
 
     /**
-     * Delete a subscriber who never confirmed after 21 days
-     * Removes from both Listmonk and local SQLite
+     * Blocklist a subscriber who never confirmed after 21 days.
+     *
+     * Blocklisting (rather than deleting) keeps the address as a suppression record:
+     * Listmonk won't send to it on any path, it is unsubscribed from all lists, and
+     * the webhook won't re-add it, so a timed-out address can't be dunned again.
      */
-    private function deleteUnconfirmedSubscriber(array $dunning): bool
+    private function expireUnconfirmedSubscriber(array $dunning): bool
     {
         $email = $dunning['email'];
         $listmonkId = $dunning['listmonk_id'];
@@ -486,40 +503,37 @@ class DunningProcessor
         $listId = (int)$dunning['list_id'];
 
         if (!$listmonkId) {
-            $this->logger->error("[$email] Cannot delete - no Listmonk ID");
+            $this->logger->error("[$email] Cannot blocklist - no Listmonk ID");
             return false;
         }
 
         if ($this->dryRun) {
-            $this->logger->info("[$email] [DRY-RUN] Would delete (21 days unconfirmed)");
+            $this->logger->info("[$email] [DRY-RUN] Would blocklist (21 days unconfirmed)");
             return true;
         }
 
-        // No email mode - skip Listmonk delete but update SQLite
+        // No email mode - leave Listmonk untouched; drop the SQLite subscriber so dunning
+        // isn't re-initiated for an address that is still unconfirmed in Listmonk
         if ($this->noEmail) {
-            $this->logger->info("[$email] [NO EMAIL] Skipping Listmonk delete, deleting subscriber from SQLite only");
+            $this->logger->info("[$email] [NO EMAIL] Skipping Listmonk blocklist, deleting subscriber from SQLite only");
+            $this->db->recordDunningEvent($subscriberId, $listId, 'expired', 'dunning_blocklist');
             $this->db->deleteSubscriber($subscriberId);
             return true;
         }
 
-        // Delete subscriber from Listmonk
         try {
-            $success = $this->client->deleteSubscriber($listmonkId);
-
-            if ($success) {
-                // Delete subscriber and all related records from SQLite
-                $this->db->deleteSubscriber($subscriberId);
-                $this->logger->info("[$email] Deleted from Listmonk and SQLite after 21 days unconfirmed");
-            } else {
-                $this->logger->error("[$email] Failed to delete subscriber from Listmonk");
+            if (!$this->client->blocklistSubscriber($listmonkId)) {
+                $this->logger->error("[$email] Failed to blocklist in Listmonk");
+                return false;
             }
-
-            return $success;
         } catch (Exception $e) {
-            // Subscriber may have already been deleted from Listmonk - clean up SQLite anyway
-            $this->logger->warn("[$email] Could not delete from Listmonk (may already be gone): " . $e->getMessage());
-            $this->db->deleteSubscriber($subscriberId);
+            $this->logger->error("[$email] Failed to blocklist in Listmonk: " . $e->getMessage());
             return false;
         }
+
+        $this->db->deleteDunning($subscriberId, $listId);
+        $this->db->recordDunningEvent($subscriberId, $listId, 'expired', 'dunning_blocklist');
+        $this->logger->info("[$email] Blocklisted after 21 days unconfirmed");
+        return true;
     }
 }

@@ -107,11 +107,23 @@ Listmonk subscriber `status` is set based on Freemius marketing consent:
 
 Re-opt-in logic: If a subscriber was blocklisted due to Freemius opt-out (previous `marketing_allowed` attribute was `false`) and they later opt back in, they are re-enabled. However, if they unsubscribed via Listmonk directly, a new Freemius webhook with `marketing_allowed = true` will NOT re-enable them (respects Listmonk unsubscribe).
 
+### Freelib Opt-In Screening
+
+Freelib (free_plugin_lib) webhooks have no HMAC, and the plugin IDs are public, so
+`FreelibGuard` screens every freelib submission before a subscriber is created:
+per-IP daily cap, one accepted submission per email per product per 30 days,
+role/disposable/no-MX rejection. Every freelib outcome returns the same
+`{"success":true}` 200 response; never make rejections distinguishable. Outcomes
+and receiving host are stored (hashed) in `freelib_submissions`. Blocklisted
+Listmonk subscribers are a suppression list and are never re-added by a freelib
+opt-in.
+
 ### Double Opt-In Handling
 
 - DripProcessor holds off sending if `subscription_status = 'unconfirmed'` on DOI lists
 - DunningProcessor sends confirmation reminders at escalating intervals
-- After 21 days unconfirmed, subscriber is blocklisted
+- After 21 days unconfirmed, subscriber is blocklisted (not deleted, so the address stays suppressed)
+- Every dunning step is recorded in `dunning_events` (stage = next step due at the time)
 
 ## Common Mistakes to Avoid
 

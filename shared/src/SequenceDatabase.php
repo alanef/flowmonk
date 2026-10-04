@@ -190,6 +190,38 @@ class SequenceDatabase
         $this->db->exec("CREATE INDEX IF NOT EXISTS idx_subscriber_dunning_next ON subscriber_dunning(next_reminder)");
         $this->db->exec("CREATE INDEX IF NOT EXISTS idx_subscribers_listmonk_id ON subscribers(listmonk_id)");
 
+        // Freelib (non-Freemius) webhook submissions, for rate limiting and host tracking.
+        // Email and IP are stored as SHA-256 hashes only.
+        $this->db->exec("
+            CREATE TABLE IF NOT EXISTS freelib_submissions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                product_id TEXT NOT NULL,
+                email_hash TEXT NOT NULL,
+                ip_hash TEXT NOT NULL,
+                host TEXT,
+                outcome TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        ");
+        $this->db->exec("CREATE INDEX IF NOT EXISTS idx_freelib_submissions_email ON freelib_submissions(email_hash, product_id, created_at)");
+        $this->db->exec("CREATE INDEX IF NOT EXISTS idx_freelib_submissions_ip ON freelib_submissions(ip_hash, created_at)");
+
+        // Dunning history: one row per dunning event, kept after the dunning record is cleared.
+        // 'stage' is the subscriber_dunning stage at the time of the event, i.e. the NEXT
+        // step due. A 'confirmed' event at dunning_1 means confirmed after the original
+        // opt-in email; at dunning_2, after reminder 1; and so on.
+        $this->db->exec("
+            CREATE TABLE IF NOT EXISTS dunning_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                subscriber_id INTEGER NOT NULL,
+                list_id INTEGER NOT NULL,
+                event TEXT NOT NULL,
+                stage TEXT,
+                created_at TEXT NOT NULL
+            )
+        ");
+        $this->db->exec("CREATE INDEX IF NOT EXISTS idx_dunning_events_event ON dunning_events(event, stage)");
+
         // Seed default data if tables are empty
         $count = $this->db->query("SELECT COUNT(*) FROM products")->fetchColumn();
         if ($count == 0) {
@@ -1209,6 +1241,103 @@ class SequenceDatabase
     }
 
     /**
+     * Record a dunning event (initiated, sent, confirmed, unsubscribed, blocklisted, expired, deleted)
+     */
+    public function recordDunningEvent(int $subscriberId, int $listId, string $event, ?string $stage): void
+    {
+        $now = (new DateTime('now', new DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
+        $stmt = $this->db->prepare("
+            INSERT INTO dunning_events (subscriber_id, list_id, event, stage, created_at)
+            VALUES (?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([$subscriberId, $listId, $event, $stage, $now]);
+    }
+
+    /**
+     * Count dunning events by event and stage since tracking began
+     *
+     * @return array [event => [stage => count]]
+     */
+    public function getDunningEventCounts(): array
+    {
+        $rows = $this->db->query("
+            SELECT event, COALESCE(stage, '') as stage, COUNT(*) as count
+            FROM dunning_events
+            GROUP BY event, stage
+        ")->fetchAll();
+
+        $counts = [];
+        foreach ($rows as $row) {
+            $counts[$row['event']][$row['stage']] = (int)$row['count'];
+        }
+        return $counts;
+    }
+
+    // =========================================================================
+    // Freelib Submission Methods (webhook rate limiting)
+    // =========================================================================
+
+    /**
+     * Record a freelib webhook submission and purge rows older than 60 days
+     */
+    public function recordFreelibSubmission(string $productId, string $emailHash, string $ipHash, string $host, string $outcome): void
+    {
+        $now = new DateTime('now', new DateTimeZone('UTC'));
+        $stmt = $this->db->prepare("
+            INSERT INTO freelib_submissions (product_id, email_hash, ip_hash, host, outcome, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([$productId, $emailHash, $ipHash, $host, $outcome, $now->format('Y-m-d\TH:i:s\Z')]);
+
+        $cutoff = (clone $now)->modify('-60 days')->format('Y-m-d\TH:i:s\Z');
+        $this->db->prepare("DELETE FROM freelib_submissions WHERE created_at < ?")->execute([$cutoff]);
+    }
+
+    /**
+     * Count freelib submissions from an IP hash since a given time (all outcomes)
+     */
+    public function countFreelibSubmissionsByIp(string $ipHash, string $since): int
+    {
+        $stmt = $this->db->prepare("
+            SELECT COUNT(*) FROM freelib_submissions
+            WHERE ip_hash = ? AND created_at >= ?
+        ");
+        $stmt->execute([$ipHash, $since]);
+        return (int)$stmt->fetchColumn();
+    }
+
+    /**
+     * Check whether an email was accepted for a product since a given time
+     */
+    public function hasAcceptedFreelibSubmission(string $productId, string $emailHash, string $since): bool
+    {
+        $stmt = $this->db->prepare("
+            SELECT 1 FROM freelib_submissions
+            WHERE product_id = ? AND email_hash = ? AND outcome = 'accepted' AND created_at >= ?
+            LIMIT 1
+        ");
+        $stmt->execute([$productId, $emailHash, $since]);
+        return (bool)$stmt->fetchColumn();
+    }
+
+    /**
+     * Freelib submission counts by host and outcome over the last N days
+     */
+    public function getFreelibSubmissionStats(int $days = 30): array
+    {
+        $since = (new DateTime('now', new DateTimeZone('UTC')))->modify("-$days days")->format('Y-m-d\TH:i:s\Z');
+        $stmt = $this->db->prepare("
+            SELECT COALESCE(host, '') as host, outcome, COUNT(*) as count
+            FROM freelib_submissions
+            WHERE created_at >= ?
+            GROUP BY host, outcome
+            ORDER BY host, outcome
+        ");
+        $stmt->execute([$since]);
+        return $stmt->fetchAll();
+    }
+
+    /**
      * Get dunning stats
      */
     public function getDunningStats(): array
@@ -1646,6 +1775,8 @@ class SequenceDatabase
             $response['dunning']['by_stage'][$row['stage']] = (int)$row['count'];
             $response['dunning']['total_in_dunning'] += (int)$row['count'];
         }
+        $response['dunning']['events'] = $this->getDunningEventCounts();
+        $response['freelib_submissions'] = $this->getFreelibSubmissionStats(30);
 
         return $response;
     }

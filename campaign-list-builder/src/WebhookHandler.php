@@ -38,7 +38,8 @@ class WebhookHandler
         // Get raw payload and signature header
         $payload = file_get_contents('php://input');
         $signature = $_SERVER['HTTP_X_SIGNATURE'] ?? '';
-        $clientIp = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+        $clientIp = $this->getClientIp();
+        $host = strtolower(preg_replace('/:\d+$/', '', $_SERVER['HTTP_HOST'] ?? ''));
         $timestamp = date('c');
 
         // Parse payload
@@ -59,7 +60,7 @@ class WebhookHandler
 
         // Log incoming webhook
         $eventType = $data['type'] ?? 'unknown';
-        $this->log('info', "Webhook received: product=$productId, event=$eventType, ip=$clientIp");
+        $this->log('info', "Webhook received: product=$productId, event=$eventType, ip=$clientIp, host=$host");
 
         // Look up product in database
         $product = $this->db->getProductById($productId);
@@ -100,15 +101,27 @@ class WebhookHandler
 
             $this->log('debug', "HMAC verification passed for product $productId");
         } else {
-            // freelib/other: Product exists in DB = valid (no HMAC needed)
+            // freelib/other: no HMAC possible (the plugin code is public), so submissions
+            // are screened by FreelibGuard below instead
             $this->log('debug', "Product $productId ($productType) validated by existence");
         }
+        $isFreelib = $productType !== 'freemius';
 
         // Webhook verified - transform payload
         $this->log('info', "Webhook verified: product=$productId, type=$productType, event=$eventType");
 
         // Check if webhook has user data with email - skip if not
         $user = $data['objects']['user'] ?? null;
+        if ($isFreelib && !$this->dryRun) {
+            // Same response for every outcome, so a scripter can't tell what was accepted
+            $outcome = $this->getFreelibGuard()->check($productId, (string)($user['email'] ?? ''), $clientIp, $host);
+            if ($outcome !== 'accepted') {
+                $this->log('info', "Freelib submission dropped: product=$productId, reason=$outcome, ip=$clientIp, host=$host");
+                $this->respondFreelibAccepted();
+                return;
+            }
+        }
+
         if (empty($user) || empty($user['email'])) {
             $this->log('info', "Skipping webhook: no user email data (event=$eventType, product=$productId)");
             $this->respond(200, [
@@ -141,7 +154,12 @@ class WebhookHandler
 
         // FA-16: Create/update subscriber in SQLite and Listmonk
         try {
-            $result = $this->processSubscriber($transformed, $productId, $eventType);
+            $result = $this->processSubscriber($transformed, $productId, $eventType, $isFreelib);
+
+            if ($isFreelib) {
+                $this->respondFreelibAccepted();
+                return;
+            }
 
             $this->respond(200, [
                 'success' => true,
@@ -168,7 +186,7 @@ class WebhookHandler
      * Process subscriber in SQLite and Listmonk
      * FA-16: SQLite is source of truth for drip state, Listmonk for list membership
      */
-    private function processSubscriber(array $transformed, string $productId, string $eventType): array
+    private function processSubscriber(array $transformed, string $productId, string $eventType, bool $isFreelib = false): array
     {
         $email = $transformed['email'];
         $name = $transformed['name'];
@@ -195,6 +213,17 @@ class WebhookHandler
             $existingAttribs = $existing['attribs'] ?? [];
             $existingName = $existing['name'] ?? '';
             $existingStatus = $existing['status'] ?? 'enabled';
+
+            // Blocklisted addresses (unsubscribed, or never confirmed and timed out of
+            // dunning) act as a suppression list: a freelib opt-in must not re-add them
+            if ($isFreelib && $existingStatus === 'blocklisted') {
+                $this->log('info', "[$email] Freelib opt-in for blocklisted subscriber - suppressed");
+                return [
+                    'action' => 'suppressed',
+                    'subscriber_id' => null,
+                    'listmonk_id' => $listmonkId
+                ];
+            }
 
             // Check if marketing_allowed changed
             $existingMarketingAllowed = $existingAttribs['marketing_allowed'] ?? false;
@@ -440,6 +469,47 @@ class WebhookHandler
             }
         }
         return null;
+    }
+
+    /**
+     * Uniform freelib response: identical for accepted, dropped and suppressed submissions
+     */
+    private function respondFreelibAccepted(): void
+    {
+        $this->respond(200, ['success' => true]);
+    }
+
+    private function getFreelibGuard(): FreelibGuard
+    {
+        require_once __DIR__ . '/FreelibGuard.php';
+        return new FreelibGuard($this->db);
+    }
+
+    /**
+     * Client IP. Behind Coolify's Traefik, REMOTE_ADDR is the proxy; Traefik discards
+     * untrusted X-Forwarded-For and appends the real peer, so the last entry is used.
+     * Forwarded headers are only trusted when the direct peer is a private address.
+     */
+    private function getClientIp(): string
+    {
+        $remote = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+        $isPrivatePeer = filter_var($remote, FILTER_VALIDATE_IP)
+            && !filter_var($remote, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
+        if ($isPrivatePeer) {
+            $forwarded = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '';
+            if ($forwarded !== '') {
+                $parts = array_map('trim', explode(',', $forwarded));
+                $last = end($parts);
+                if (filter_var($last, FILTER_VALIDATE_IP)) {
+                    return $last;
+                }
+            }
+            $realIp = trim($_SERVER['HTTP_X_REAL_IP'] ?? '');
+            if (filter_var($realIp, FILTER_VALIDATE_IP)) {
+                return $realIp;
+            }
+        }
+        return $remote;
     }
 
     /**

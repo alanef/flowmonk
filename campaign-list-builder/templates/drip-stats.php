@@ -165,7 +165,7 @@
     <!-- Dunning Stats (Double Opt-In Confirmation Reminders) -->
     <section x-show="!loading && stats?.dunning" class="dunning-stats">
         <h2>Double Opt-In Dunning</h2>
-        <p class="section-description">Subscribers waiting to confirm their email subscription. Reminders are sent at day 1, 3, 7, and 14. Subscribers who never confirm are blocklisted at day 21.</p>
+        <p class="section-description">Subscribers waiting to confirm their email subscription. Reminders are sent at day 1, 3, 7, and 14. Subscribers who never confirm are blocklisted in Listmonk at day 21 (kept as a suppression record, so the address can't be re-added and reminded again).</p>
 
         <div class="dunning-summary">
             <div class="dunning-total">
@@ -182,6 +182,47 @@
                 </div>
             </template>
         </div>
+
+        <h3>Confirmations by Step</h3>
+        <p class="section-description">Which email each subscriber confirmed after, since step tracking began. Confirmations within the first 15 minutes (before dunning starts) are not counted.</p>
+        <table class="dunning-steps">
+            <thead>
+                <tr><th>Confirmed after</th><th>Confirmed</th><th>Emails sent</th></tr>
+            </thead>
+            <tbody>
+                <template x-for="step in dunningSteps" :key="step.stage">
+                    <tr>
+                        <td x-text="step.label"></td>
+                        <td x-text="stats?.dunning?.events?.confirmed?.[step.stage] ?? 0"></td>
+                        <td x-text="step.sentStage ? (stats?.dunning?.events?.sent?.[step.sentStage] ?? 0) : (stats?.dunning?.events?.initiated?.['dunning_1'] ?? 0)"></td>
+                    </tr>
+                </template>
+                <tr>
+                    <td>Blocklisted at day 21 (never confirmed)</td>
+                    <td colspan="2" x-text="stats?.dunning?.events?.expired?.['dunning_blocklist'] ?? 0"></td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <!-- Freelib Opt-in Submissions -->
+    <section x-show="!loading && stats?.freelib_submissions" class="freelib-submissions">
+        <h2>Free Plugin Opt-in Submissions (30 days)</h2>
+        <p class="section-description">Unauthenticated opt-ins from free plugins, by receiving host and outcome. Anything other than "accepted" was dropped silently (rate limit, role or disposable address, no MX).</p>
+        <table>
+            <thead>
+                <tr><th>Host</th><th>Outcome</th><th>Count</th></tr>
+            </thead>
+            <tbody>
+                <template x-for="row in stats?.freelib_submissions ?? []" :key="row.host + row.outcome">
+                    <tr>
+                        <td x-text="row.host || '(none)'"></td>
+                        <td x-text="row.outcome"></td>
+                        <td x-text="row.count"></td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
     </section>
 
     <!-- Refresh Button -->
@@ -729,6 +770,15 @@ function dripStats() {
             if (value < 0) return 'delta-negative';
             return 'delta-neutral';
         },
+
+        // A confirmation recorded at stage N happened after the email that preceded it
+        dunningSteps: [
+            { stage: 'dunning_1', label: 'Original opt-in email', sentStage: null },
+            { stage: 'dunning_2', label: 'Reminder 1 (day 1)', sentStage: 'dunning_1' },
+            { stage: 'dunning_3', label: 'Reminder 2 (day 3)', sentStage: 'dunning_2' },
+            { stage: 'dunning_4', label: 'Reminder 3 (day 7)', sentStage: 'dunning_3' },
+            { stage: 'dunning_blocklist', label: 'Reminder 4 (day 14)', sentStage: 'dunning_4' },
+        ],
 
         formatDunningStageName(stage) {
             const names = {

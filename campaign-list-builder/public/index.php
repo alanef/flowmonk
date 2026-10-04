@@ -621,6 +621,7 @@ function handleApi(string $uri, string $method): void
                 'total_in_dunning' => 0,
                 'by_stage' => []
             ];
+            $response['freelib_submissions'] = $sqliteStats['freelib_submissions'] ?? [];
 
             echo json_encode(['data' => $response]);
             break;

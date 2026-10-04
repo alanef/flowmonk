@@ -216,9 +216,10 @@ try {
     $dunningProcessor = new DunningProcessor($client, $sequenceDb, $logger, $dryRun, $noEmail);
     $dunningResult = $dunningProcessor->processDunning();
     $logger->info(sprintf(
-        "Dunning completed. Initiated: %d, Sent: %d, Deleted: %d, Confirmed: %d, Skipped: %d",
+        "Dunning completed. Initiated: %d, Sent: %d, Blocklisted: %d, Deleted: %d, Confirmed: %d, Skipped: %d",
         $dunningResult['initiated'],
         $dunningResult['sent'],
+        $dunningResult['expired'],
         $dunningResult['deleted'],
         $dunningResult['confirmed'],
         $dunningResult['skipped']
