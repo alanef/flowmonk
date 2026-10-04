@@ -11,6 +11,7 @@
  * - Day 7: Third reminder (dunning_3)
  * - Day 14: Final reminder (dunning_4)
  * - Day 21: Blocklist subscriber (dunning_blocklist)
+ * Shared inboxes (info@, contact@, ...) get no reminders: dunning_quiet, then blocklist at day 21.
  *
  * Expired subscribers are blocklisted in Listmonk, not deleted, so the address
  * stays suppressed: Listmonk won't mail it and the webhook won't re-add it.
@@ -26,6 +27,13 @@ class DunningProcessor
     private bool $noEmail;
     private ?array $doubleOptInListIdsCache = null;
 
+    // Shared inboxes: the original opt-in email is sent, but no reminders. On a
+    // one-person site info@ is often the owner, but on a larger one the person
+    // reading it never signed up and is the likeliest to report spam.
+    // Admin/noreply-type addresses are rejected earlier by FreelibGuard.
+    private const NO_REMINDER_LOCAL_PARTS = ['info', 'contact', 'hello', 'office', 'sales', 'support', 'enquiries', 'inquiries', 'mail', 'team'];
+    private const DUNNING_EXPIRY_DAYS = 21;
+
     // Dunning schedule: stage => [delay to next stage, next stage name]
     // delay_days is days UNTIL next stage (not cumulative from start)
     private const SCHEDULE = [
@@ -34,6 +42,7 @@ class DunningProcessor
         'dunning_3' => ['delay_days' => 7, 'next_stage' => 'dunning_4'],      // Day 7 -> Day 14
         'dunning_4' => ['delay_days' => 7, 'next_stage' => 'dunning_blocklist'], // Day 14 -> Day 21
         'dunning_blocklist' => ['delay_days' => 0, 'next_stage' => null],     // Final action
+        'dunning_quiet' => ['delay_days' => 0, 'next_stage' => null],         // Shared inbox: expiry only, no reminders
     ];
 
     public function __construct(ListmonkClient $client, SequenceDatabase $db, Logger $logger, bool $dryRun = false, bool $noEmail = false)
@@ -129,12 +138,15 @@ class DunningProcessor
                     continue;
                 }
 
-                // Initiate dunning
+                // Initiate dunning. Shared inboxes skip straight to expiry: no reminders.
                 $now = new DateTime('now', new DateTimeZone('UTC'));
-                $firstReminderDate = (clone $now)->modify('+1 day');
+                $noReminders = self::isSharedInbox($email);
+                $firstStage = $noReminders ? 'dunning_quiet' : 'dunning_1';
+                $firstDate = (clone $now)->modify($noReminders ? '+' . self::DUNNING_EXPIRY_DAYS . ' days' : '+1 day');
+                $note = $noReminders ? ' (shared inbox - no reminders)' : '';
 
                 if ($this->dryRun) {
-                    $this->logger->info("[$email] [DRY-RUN] Would initiate dunning for list $unconfirmedListId");
+                    $this->logger->info("[$email] [DRY-RUN] Would initiate dunning for list $unconfirmedListId$note");
                     $result['initiated']++;
                     continue;
                 }
@@ -142,11 +154,11 @@ class DunningProcessor
                 $this->db->getOrCreateDunning(
                     $subscriberId,
                     $unconfirmedListId,
-                    'dunning_1',
-                    $firstReminderDate->format('Y-m-d\TH:i:s\Z')
+                    $firstStage,
+                    $firstDate->format('Y-m-d\TH:i:s\Z')
                 );
-                $this->db->recordDunningEvent($subscriberId, $unconfirmedListId, 'initiated', 'dunning_1');
-                $this->logger->info("[$email] Initiated dunning for list $unconfirmedListId");
+                $this->db->recordDunningEvent($subscriberId, $unconfirmedListId, 'initiated', $firstStage);
+                $this->logger->info("[$email] Initiated dunning for list $unconfirmedListId$note");
                 $result['initiated']++;
 
                 $this->client->delay(50);
@@ -351,7 +363,7 @@ class DunningProcessor
         }
 
         // Final stage: never confirmed after 21 days - blocklist as suppression
-        if ($currentStage === 'dunning_blocklist') {
+        if ($currentStage === 'dunning_blocklist' || $currentStage === 'dunning_quiet') {
             $success = $this->expireUnconfirmedSubscriber($dunning);
             return $success ? 'expired' : 'skipped';
         }
@@ -384,6 +396,16 @@ class DunningProcessor
         $this->logger->info("[$email] Advanced dunning to $nextStage, next: $nextDate");
 
         return 'sent';
+    }
+
+    /**
+     * Whether the address is a shared inbox that gets no dunning reminders
+     */
+    public static function isSharedInbox(string $email): bool
+    {
+        $local = strtolower(explode('@', trim($email), 2)[0]);
+        $local = explode('+', $local, 2)[0];
+        return in_array($local, self::NO_REMINDER_LOCAL_PARTS, true);
     }
 
     /**
@@ -516,7 +538,7 @@ class DunningProcessor
         // isn't re-initiated for an address that is still unconfirmed in Listmonk
         if ($this->noEmail) {
             $this->logger->info("[$email] [NO EMAIL] Skipping Listmonk blocklist, deleting subscriber from SQLite only");
-            $this->db->recordDunningEvent($subscriberId, $listId, 'expired', 'dunning_blocklist');
+            $this->db->recordDunningEvent($subscriberId, $listId, 'expired', $dunning['stage']);
             $this->db->deleteSubscriber($subscriberId);
             return true;
         }
@@ -532,7 +554,7 @@ class DunningProcessor
         }
 
         $this->db->deleteDunning($subscriberId, $listId);
-        $this->db->recordDunningEvent($subscriberId, $listId, 'expired', 'dunning_blocklist');
+        $this->db->recordDunningEvent($subscriberId, $listId, 'expired', $dunning['stage']);
         $this->logger->info("[$email] Blocklisted after 21 days unconfirmed");
         return true;
     }

@@ -1355,7 +1355,8 @@ class SequenceDatabase
                     WHEN 'dunning_3' THEN 3
                     WHEN 'dunning_4' THEN 4
                     WHEN 'dunning_blocklist' THEN 5
-                    ELSE 6
+                    WHEN 'dunning_quiet' THEN 6
+                    ELSE 7
                 END
         ")->fetchAll();
     }

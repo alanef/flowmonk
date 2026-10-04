@@ -25,6 +25,12 @@ All notable changes to FlowMonk are documented here, in
   at day 21 instead of deleted. Deleting them let the same address be signed up
   again and receive another five emails; the blocklist acts as a permanent
   suppression record. The drip-runner summary reports these as "Blocklisted".
+- Shared-inbox addresses (info@, contact@, hello@, office@, sales@, support@,
+  enquiries@, inquiries@, mail@, team@) still receive the original opt-in email
+  but no reminders, and are blocklisted at day 21 if unconfirmed. On a larger
+  business the person reading a shared inbox usually never signed up and is the
+  likeliest to report the reminders as spam; on a one-person site the owner can
+  still confirm from the first email.
 
 ### Added
 - Dunning events (initiated, reminder sent, confirmed, unsubscribed, blocklisted,

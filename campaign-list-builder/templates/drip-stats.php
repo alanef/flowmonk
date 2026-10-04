@@ -165,7 +165,7 @@
     <!-- Dunning Stats (Double Opt-In Confirmation Reminders) -->
     <section x-show="!loading && stats?.dunning" class="dunning-stats">
         <h2>Double Opt-In Dunning</h2>
-        <p class="section-description">Subscribers waiting to confirm their email subscription. Reminders are sent at day 1, 3, 7, and 14. Subscribers who never confirm are blocklisted in Listmonk at day 21 (kept as a suppression record, so the address can't be re-added and reminded again).</p>
+        <p class="section-description">Subscribers waiting to confirm their email subscription. Reminders are sent at day 1, 3, 7, and 14; shared inboxes (info@, contact@, etc.) get no reminders. Subscribers who never confirm are blocklisted in Listmonk at day 21 (kept as a suppression record, so the address can't be re-added and reminded again).</p>
 
         <div class="dunning-summary">
             <div class="dunning-total">
@@ -194,12 +194,12 @@
                     <tr>
                         <td x-text="step.label"></td>
                         <td x-text="stats?.dunning?.events?.confirmed?.[step.stage] ?? 0"></td>
-                        <td x-text="step.sentStage ? (stats?.dunning?.events?.sent?.[step.sentStage] ?? 0) : (stats?.dunning?.events?.initiated?.['dunning_1'] ?? 0)"></td>
+                        <td x-text="step.sentStage === 'initiated' ? (stats?.dunning?.events?.initiated?.['dunning_quiet'] ?? 0) : step.sentStage ? (stats?.dunning?.events?.sent?.[step.sentStage] ?? 0) : (stats?.dunning?.events?.initiated?.['dunning_1'] ?? 0)"></td>
                     </tr>
                 </template>
                 <tr>
                     <td>Blocklisted at day 21 (never confirmed)</td>
-                    <td colspan="2" x-text="stats?.dunning?.events?.expired?.['dunning_blocklist'] ?? 0"></td>
+                    <td colspan="2" x-text="(stats?.dunning?.events?.expired?.['dunning_blocklist'] ?? 0) + (stats?.dunning?.events?.expired?.['dunning_quiet'] ?? 0)"></td>
                 </tr>
             </tbody>
         </table>
@@ -778,6 +778,7 @@ function dripStats() {
             { stage: 'dunning_3', label: 'Reminder 2 (day 3)', sentStage: 'dunning_2' },
             { stage: 'dunning_4', label: 'Reminder 3 (day 7)', sentStage: 'dunning_3' },
             { stage: 'dunning_blocklist', label: 'Reminder 4 (day 14)', sentStage: 'dunning_4' },
+            { stage: 'dunning_quiet', label: 'Original only (shared inbox, no reminders)', sentStage: 'initiated' },
         ],
 
         formatDunningStageName(stage) {
@@ -786,7 +787,8 @@ function dripStats() {
                 'dunning_2': 'Day 3',
                 'dunning_3': 'Day 7',
                 'dunning_4': 'Day 14',
-                'dunning_blocklist': 'Day 21'
+                'dunning_blocklist': 'Day 21',
+                'dunning_quiet': 'Shared inbox (no reminders)'
             };
             return names[stage] || stage;
         },
@@ -797,7 +799,8 @@ function dripStats() {
                 'dunning_2': 'day-3',
                 'dunning_3': 'day-7',
                 'dunning_4': 'day-14',
-                'dunning_blocklist': 'blocklist'
+                'dunning_blocklist': 'blocklist',
+                'dunning_quiet': 'blocklist'
             };
             return classes[stage] || '';
         },

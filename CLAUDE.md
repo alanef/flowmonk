@@ -123,6 +123,7 @@ opt-in.
 - DripProcessor holds off sending if `subscription_status = 'unconfirmed'` on DOI lists
 - DunningProcessor sends confirmation reminders at escalating intervals
 - After 21 days unconfirmed, subscriber is blocklisted (not deleted, so the address stays suppressed)
+- Shared inboxes (info@, contact@, ...) get no reminders: stage `dunning_quiet`, blocklisted at day 21
 - Every dunning step is recorded in `dunning_events` (stage = next step due at the time)
 
 ## Common Mistakes to Avoid
